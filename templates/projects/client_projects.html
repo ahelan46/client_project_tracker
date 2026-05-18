@@ -3,11 +3,23 @@
 {% block title %}My Projects | Client Portal{% endblock %}
 
 {% block content %}
+<!-- <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-0">My Projects</h3>
+        <p class="text-muted small mb-0">Overview of all your projects with us</p>
+    </div>
+    <a href="{% url 'client_form' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i> Add Project
+    </a>
+</div> -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h3 class="fw-bold mb-0">My Projects</h3>
         <p class="text-muted small mb-0">Overview of all your projects with us</p>
     </div>
+    <a href="{% url 'client_form' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i> Add Project
+    </a>
 </div>
 
 <div class="row g-4">
@@ -61,5 +73,14 @@
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
+
+    .btn.btn-primary {
+        opacity: 1;
+        background-color: rgb(32, 32, 154);
+    }
+    .d-flex:hover .btn.btn-primary {
+        opacity: 1;
+    }
+
 </style>
 {% endblock %}
