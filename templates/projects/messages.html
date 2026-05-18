@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Messages | Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-0">Messages</h3>
+        <p class="text-muted small mb-0">Project communication and collaboration</p>
+    </div>
+</div>
+
+<div class="row g-4" style="height: calc(100vh - 200px);">
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 16px;">
+            <div class="card-header bg-white border-0 pt-4 px-4 pb-2">
+                <h6 class="fw-bold mb-0 text-uppercase small text-muted">Discussions</h6>
+            </div>
+            <div class="card-body p-0 overflow-auto">
+                <div class="list-group list-group-flush">
+                    {% for project in projects %}
+                    <a href="#" class="list-group-item list-group-item-action px-4 py-3 border-0 border-bottom active">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <h6 class="fw-bold mb-0 small">{{ project.title }}</h6>
+                            <span class="x-small">12:30 PM</span>
+                        </div>
+                        <p class="text-muted small mb-0 text-truncate">Latest discussion about the project status...</p>
+                    </a>
+                    {% empty %}
+                    <div class="text-center py-4 text-muted small">No active projects.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100 d-flex flex-column" style="border-radius: 16px;">
+            <div class="card-header bg-white border-0 py-3 px-4 d-flex align-items-center justify-content-between border-bottom">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3 text-primary">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0">Project Discussion</h6>
+                        <span class="text-success small"><i class="fas fa-circle me-1" style="font-size: 0.6rem;"></i> Active</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body p-4 overflow-auto flex-grow-1" id="chatContainer">
+                {% for message in messages %}
+                <div class="d-flex mb-4 {% if message.sender == request.user %}justify-content-end{% endif %}">
+                    {% if message.sender != request.user %}
+                    <img src="https://ui-avatars.com/api/?name={{ message.sender.username }}&background=random" class="rounded-circle me-2" width="32" height="32">
+                    {% endif %}
+                    <div class="max-width-75">
+                        <div class="p-3 {% if message.sender == request.user %}bg-primary text-white{% else %}bg-light{% endif %}" style="border-radius: 12px;">
+                            {% if message.sender != request.user %}
+                            <div class="fw-bold x-small mb-1">{{ message.sender.username }}</div>
+                            {% endif %}
+                            <div class="small">{{ message.content }}</div>
+                        </div>
+                        <div class="text-muted x-small mt-1 {% if message.sender == request.user %}text-end{% endif %}">{{ message.created_at|time:"H:i" }}</div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-5 text-muted">
+                    <i class="far fa-comments fa-3x mb-3 opacity-25"></i>
+                    <p>Start a conversation for this project.</p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="card-footer bg-white border-0 p-4">
+                <form method="POST" class="d-flex gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="project" value="{{ projects.0.id }}">
+                    <input type="text" name="content" class="form-control bg-light border-0 py-2" placeholder="Type your message..." required>
+                    <button type="submit" class="btn btn-primary px-3">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .max-width-75 { max-width: 75%; }
+    .x-small { font-size: 0.75rem; }
+</style>
+
+<script>
+    // Scroll to bottom of chat
+    const chatContainer = document.getElementById('chatContainer');
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+</script>
+{% endblock %}

@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}Task Board | Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-0">Task Board</h3>
+        <p class="text-muted small mb-0">Manage and track project tasks</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+        <i class="fas fa-plus me-2"></i> Add Task
+    </button>
+</div>
+
+<div class="row g-4">
+    <!-- To Do -->
+    <div class="col-lg-4">
+        <div class="card bg-light border-0" style="border-radius: 12px; min-height: 70vh;">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                <h6 class="fw-bold mb-0 text-muted text-uppercase small">To Do</h6>
+                <span class="badge bg-secondary rounded-pill">{{ tasks|dictsort:"status"|slice:":1"|length }}</span>
+            </div>
+            <div class="card-body p-2">
+                {% for task in tasks %}
+                    {% if task.status == 'todo' %}
+                    <div class="card border-0 shadow-sm mb-2 p-3" style="border-radius: 10px;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-{{ task.priority }} x-small">{{ task.get_priority_display }}</span>
+                            <span class="text-muted x-small"><i class="far fa-calendar-alt me-1"></i> {{ task.deadline }}</span>
+                        </div>
+                        <h6 class="fw-bold mb-1">{{ task.title }}</h6>
+                        <p class="text-muted x-small mb-2">{{ task.project.title }}</p>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <img src="https://ui-avatars.com/api/?name={{ task.assigned_to.username }}&size=24&background=random" class="rounded-circle me-2" alt="">
+                                <span class="x-small text-muted">{{ task.assigned_to.username }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- In Progress -->
+    <div class="col-lg-4">
+        <div class="card bg-light border-0" style="border-radius: 12px; min-height: 70vh;">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                <h6 class="fw-bold mb-0 text-primary text-uppercase small">In Progress</h6>
+                <span class="badge bg-primary rounded-pill">{{ tasks|dictsort:"status"|length }}</span>
+            </div>
+            <div class="card-body p-2">
+                {% for task in tasks %}
+                    {% if task.status == 'in_progress' %}
+                    <div class="card border-0 shadow-sm mb-2 p-3" style="border-radius: 10px; border-left: 4px solid var(--primary-color) !important;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-{{ task.priority }} x-small">{{ task.get_priority_display }}</span>
+                            <span class="text-muted x-small"><i class="far fa-calendar-alt me-1"></i> {{ task.deadline }}</span>
+                        </div>
+                        <h6 class="fw-bold mb-1">{{ task.title }}</h6>
+                        <p class="text-muted x-small mb-2">{{ task.project.title }}</p>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <img src="https://ui-avatars.com/api/?name={{ task.assigned_to.username }}&size=24&background=random" class="rounded-circle me-2" alt="">
+                                <span class="x-small text-muted">{{ task.assigned_to.username }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Done -->
+    <div class="col-lg-4">
+        <div class="card bg-light border-0" style="border-radius: 12px; min-height: 70vh;">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                <h6 class="fw-bold mb-0 text-success text-uppercase small">Completed</h6>
+                <span class="badge bg-success rounded-pill">{{ tasks|dictsort:"status"|length }}</span>
+            </div>
+            <div class="card-body p-2">
+                {% for task in tasks %}
+                    {% if task.status == 'done' %}
+                    <div class="card border-0 shadow-sm mb-2 p-3" style="border-radius: 10px; opacity: 0.8;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-success x-small">Done</span>
+                            <span class="text-muted x-small"><i class="far fa-calendar-alt me-1"></i> {{ task.deadline }}</span>
+                        </div>
+                        <h6 class="fw-bold mb-1 text-decoration-line-through">{{ task.title }}</h6>
+                        <p class="text-muted x-small mb-2">{{ task.project.title }}</p>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <img src="https://ui-avatars.com/api/?name={{ task.assigned_to.username }}&size=24&background=random" class="rounded-circle me-2" alt="">
+                                <span class="x-small text-muted">{{ task.assigned_to.username }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Task Modal -->
+<div class="modal fade" id="addTaskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header border-0 pt-4 px-4">
+                <h5 class="fw-bold">Create New Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Project</label>
+                            {{ form.project }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Task Title</label>
+                            {{ form.title }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Description</label>
+                            {{ form.description }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Assigned To</label>
+                            {{ form.assigned_to }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Deadline</label>
+                            {{ form.deadline }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Priority</label>
+                            {{ form.priority }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Status</label>
+                            {{ form.status }}
+                        </div>
+                    </div>
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-primary px-4">Save Task</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

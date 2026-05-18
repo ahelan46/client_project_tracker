@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}My Projects | Client Portal{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-0">My Projects</h3>
+        <p class="text-muted small mb-0">Overview of all your projects with us</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    {% for project in projects %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 16px;">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <span class="badge bg-{{ project.priority }}-subtle text-{{ project.priority }} border border-{{ project.priority }}-subtle px-3">{{ project.get_priority_display }}</span>
+                    <span class="text-muted small"><i class="far fa-calendar me-1"></i> {{ project.deadline|date:"M d, Y" }}</span>
+                </div>
+                <h5 class="fw-bold mb-2">{{ project.title }}</h5>
+                <p class="text-muted small mb-4 line-clamp-2">{{ project.description }}</p>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small fw-bold">Progress</span>
+                        <span class="small text-muted">{{ project.get_progress }}%</span>
+                    </div>
+                    <div class="progress" style="height: 8px; border-radius: 4px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ project.get_progress }}%"></div>
+                    </div>
+                </div>
+                
+                <div class="d-flex align-items-center justify-content-between pt-3 border-top">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-light p-2 rounded-circle me-2">
+                            <i class="fas fa-user-tie text-muted" style="font-size: 0.8rem;"></i>
+                        </div>
+                        <div>
+                            <div class="x-small text-muted">Manager</div>
+                            <div class="small fw-bold">{{ project.manager.username|default:"Unassigned" }}</div>
+                        </div>
+                    </div>
+                    <a href="{% url 'project_detail' project.id %}" class="btn btn-sm btn-outline-primary px-3">Details</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <div class="text-muted">No projects found.</div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}

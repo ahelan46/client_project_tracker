@@ -14,9 +14,20 @@
             {% csrf_token %}
             {% for field in form %}
             <div class="mb-3">
-                <label class="form-label">{{ field.label }}</label>
+                <label class="form-label fw-semibold" style="font-size: 0.85rem;">{{ field.label }}</label>
                 {{ field.errors }}
-                <input type="{{ field.field.widget.input_type }}" name="{{ field.name }}" class="form-control" placeholder="{{ field.label }}">
+                {% if field.name == 'role' %}
+                    <select name="{{ field.name }}" class="form-select">
+                        {% for value, label in field.field.choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    <input type="{% if 'password' in field.name %}password{% elif field.name == 'email' %}email{% else %}text{% endif %}" 
+                           name="{{ field.name }}" 
+                           class="form-control" 
+                           placeholder="{{ field.label }}">
+                {% endif %}
                 {% if field.help_text %}
                 <div class="form-text text-muted" style="font-size: 0.75rem;">{{ field.help_text }}</div>
                 {% endif %}

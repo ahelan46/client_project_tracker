@@ -3,6 +3,43 @@
 {% block title %}Dashboard | Clients Project Tracker{% endblock %}
 
 {% block content %}
+<!-- Welcome Banner -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm overflow-hidden" style="border-radius: 16px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+            <div class="card-body p-4 p-lg-5 text-white position-relative">
+                <div class="row align-items-center">
+                    <div class="col-lg-8">
+                        <h2 class="fw-bold mb-2">
+                            {% if user.profile.role == 'admin' %}
+                                Welcome, Admin!
+                            {% elif user.profile.role == 'project_manager' %}
+                                Welcome, Project Manager!
+                            {% elif user.profile.role == 'team_leader' %}
+                                Welcome Leader!
+                            {% elif user.profile.role == 'team_member' %}
+                                Welcome Team Member!
+                            {% elif user.profile.role == 'client' %}
+                                Welcome Client!
+                            {% else %}
+                                Welcome Back, {{ user.username }}!
+                            {% endif %}
+                        </h2>
+                        <p class="mb-0 opacity-75">Here's what's happening with your projects today. You have {{ total_tasks }} active tasks to manage.</p>
+                    </div>
+                    <div class="col-lg-4 text-end d-none d-lg-block">
+                        <div class="bg-white bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                            <i class="fas fa-user-shield fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+                <!-- Decorative Circle -->
+                <div class="position-absolute" style="width: 200px; height: 200px; background: white; opacity: 0.05; border-radius: 50%; top: -100px; right: -50px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- KPI Cards Row -->
 <div class="row g-4 mb-4">
     <div class="col-md-3">

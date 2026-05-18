@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}My Tasks | Tracker{% endblock %}
+
+{% block content %}
+<!-- Welcome Banner -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm overflow-hidden" style="border-radius: 16px; background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);">
+            <div class="card-body p-4 p-lg-5 text-white position-relative">
+                <div class="row align-items-center">
+                    <div class="col-lg-8">
+                        <h2 class="fw-bold mb-2">Welcome Team Member!</h2>
+                        <p class="mb-0 opacity-75">You have {{ upcoming_deadlines.count }} upcoming deadlines. Let's get things done!</p>
+                    </div>
+                    <div class="col-lg-4 text-end d-none d-lg-block">
+                        <div class="bg-white bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                            <i class="fas fa-user-check fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <!-- Stats Sidebar -->
+        <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; border: 1px solid var(--border-color) !important;">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <img src="https://ui-avatars.com/api/?name={{ user.username }}&size=80&background=3b82f6&color=fff" class="rounded-circle mb-3 shadow-sm border border-4 border-white">
+                    <h5 class="fw-bold mb-0">{{ user.get_full_name|default:user.username }}</h5>
+                    <p class="text-muted small">Team Member</p>
+                </div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-3 text-center">
+                            <div class="h4 fw-bold text-primary mb-0">{{ total_tasks }}</div>
+                            <div class="x-small text-primary">Assigned</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="bg-success bg-opacity-10 p-3 rounded-3 text-center">
+                            <div class="h4 fw-bold text-success mb-0">{{ done_tasks }}</div>
+                            <div class="x-small text-success">Completed</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm" style="border-radius: 12px; border: 1px solid var(--border-color) !important;">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0">Quick Action</h6>
+            </div>
+            <div class="card-body">
+                <a href="{% url 'task_list' %}" class="btn btn-primary w-100 mb-2">View All My Tasks</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-2">
+                <h5 class="fw-bold mb-0">My Priority Tasks</h5>
+            </div>
+            <div class="card-body px-4">
+                {% for task in upcoming_deadlines %}
+                <div class="d-flex align-items-center p-3 mb-3 border rounded-3 hover-shadow-sm transition-all">
+                    <div class="bg-{{ task.priority }} bg-opacity-10 text-{{ task.priority }} p-2 rounded-3 me-3">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">{{ task.title }}</div>
+                        <div class="text-muted small">Project: {{ task.project.title }}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="badge bg-{{ task.status }} mb-1">{{ task.get_status_display }}</div>
+                        <div class="text-danger x-small fw-bold">Due: {{ task.deadline|date:"M d" }}</div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-check-circle fa-3x mb-3 opacity-25"></i>
+                    <p>All caught up! No pending priority tasks.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

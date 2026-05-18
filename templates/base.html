@@ -69,7 +69,8 @@
                 <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg mt-2 p-2" style="border-radius: 12px; min-width: 180px;">
                     <li class="px-3 py-2 border-bottom mb-2">
                         <div class="fw-bold text-main">{{ user.username }}</div>
-                        <div class="text-muted x-small" style="font-size: 0.75rem;">{{ user.email }}</div>
+                        <div class="text-muted x-small mb-1" style="font-size: 0.75rem;">{{ user.email }}</div>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.7rem;">{% if user.profile %}{{ user.profile.get_role_display }}{% else %}No Role{% endif %}</span>
                     </li>
                     <li><a class="dropdown-item py-2 rounded-2" href="#"><i class="far fa-user me-2"></i> Profile</a></li>
                     <li><a class="dropdown-item py-2 rounded-2 text-danger" href="{% url 'logout' %}"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
@@ -91,6 +92,29 @@
                         <i class="fas fa-th-large"></i> <span class="nav-link-text">Dashboard</span>
                     </a>
                 </div>
+
+                {% if user.profile.role == 'client' %}
+                <div class="nav-item-custom">
+                    <a href="{% url 'client_projects' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'client_projects' %}active{% endif %}" title="My Projects">
+                        <i class="fas fa-briefcase"></i> <span class="nav-link-text">My Projects</span>
+                    </a>
+                </div>
+                <div class="nav-item-custom">
+                    <a href="{% url 'client_reports' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'client_reports' %}active{% endif %}" title="Progress Reports">
+                        <i class="fas fa-chart-line"></i> <span class="nav-link-text">Progress Reports</span>
+                    </a>
+                </div>
+                <div class="nav-item-custom">
+                    <a href="{% url 'client_files' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'client_files' %}active{% endif %}" title="Files">
+                        <i class="fas fa-file-download"></i> <span class="nav-link-text">Files</span>
+                    </a>
+                </div>
+                <div class="nav-item-custom">
+                    <a href="{% url 'client_feedback' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'client_feedback' %}active{% endif %}" title="Feedback">
+                        <i class="fas fa-comment-alt"></i> <span class="nav-link-text">Feedback</span>
+                    </a>
+                </div>
+                {% else %}
                 <div class="nav-item-custom">
                     <a href="{% url 'client_list' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'client_list' %}active{% endif %}" title="Clients">
                         <i class="fas fa-user-friends"></i> <span class="nav-link-text">Clients</span>
@@ -102,13 +126,32 @@
                     </a>
                 </div>
                 <div class="nav-item-custom">
-                    <a href="{% url 'task_list' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'task_list' %}active{% endif %}" title="Tasks">
-                        <i class="fas fa-check-circle"></i> <span class="nav-link-text">Tasks</span>
+                    <a href="{% url 'task_board' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'task_board' %}active{% endif %}" title="Task Board">
+                        <i class="fas fa-columns"></i> <span class="nav-link-text">Task Board</span>
+                    </a>
+                </div>
+                {% if user.profile.role == 'project_manager' or user.profile.role == 'admin' %}
+                <div class="nav-item-custom">
+                    <a href="{% url 'team_reports' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'team_reports' %}active{% endif %}" title="Reports">
+                        <i class="fas fa-file-alt"></i> <span class="nav-link-text">Team Reports</span>
+                    </a>
+                </div>
+                {% endif %}
+                <div class="nav-item-custom">
+                    <a href="{% url 'calendar' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'calendar' %}active{% endif %}" title="Calendar">
+                        <i class="fas fa-calendar-alt"></i> <span class="nav-link-text">Calendar</span>
                     </a>
                 </div>
                 <div class="nav-item-custom">
-                    <a href="#" class="nav-link-custom" title="Team">
-                        <i class="fas fa-users"></i> <span class="nav-link-text">Team</span>
+                    <a href="{% url 'messages' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'messages' %}active{% endif %}" title="Messages">
+                        <i class="fas fa-envelope"></i> <span class="nav-link-text">Messages</span>
+                    </a>
+                </div>
+                {% endif %}
+
+                <div class="nav-item-custom">
+                    <a href="#" class="nav-link-custom" title="Settings">
+                        <i class="fas fa-cog"></i> <span class="nav-link-text">Settings</span>
                     </a>
                 </div>
             </nav>
@@ -134,7 +177,6 @@
             sidebar.classList.toggle('collapsed');
             contentBody.classList.toggle('sidebar-collapsed-content');
             
-            // Toggle hover titles only when collapsed
             const navLinks = document.querySelectorAll('.nav-link-custom');
             navLinks.forEach(link => {
                 if (sidebar.classList.contains('collapsed')) {
@@ -153,7 +195,6 @@
         const themeToggle = document.getElementById('themeToggle');
         const html = document.documentElement;
         
-        // Load saved theme
         const savedTheme = localStorage.getItem('theme') || 'light';
         html.setAttribute('data-theme', savedTheme);
         updateThemeIcon(savedTheme);
@@ -176,7 +217,6 @@
             }
         }
 
-        // Initialize tooltips for any element with data-bs-toggle="tooltip"
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)

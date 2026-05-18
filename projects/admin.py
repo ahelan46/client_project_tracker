@@ -1,5 +1,11 @@
 from django.contrib import admin
-from .models import Client, Project, Task, Notification
+from .models import Client, Project, Task, Notification, UserProfile
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'role', 'phone')
+    list_filter = ('role',)
+    search_fields = ('user__username', 'phone')
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
