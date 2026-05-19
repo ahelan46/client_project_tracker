@@ -122,6 +122,33 @@ class Project(models.Model):
         done_tasks = self.tasks.filter(status='done').count()
         return int((done_tasks / total_tasks) * 100)
 
+    def get_accepted_assignment(self):
+        return self.assignments.filter(status='accepted').first()
+
+    def get_team_leader(self):
+        assignment = self.get_accepted_assignment()
+        return assignment.team_leader if assignment else None
+
+    def get_team(self):
+        leader = self.get_team_leader()
+        if leader:
+            return Team.objects.filter(leaders=leader).first()
+        return None
+
+    def get_team_members(self):
+        team = self.get_team()
+        return team.members.all() if team else []
+
+    def get_completed_team_projects_count(self):
+        leader = self.get_team_leader()
+        if leader:
+            return Project.objects.filter(
+                assignments__team_leader=leader,
+                assignments__status='accepted',
+                status='completed'
+            ).distinct().count()
+        return 0
+
     def __str__(self):
         return self.title
 

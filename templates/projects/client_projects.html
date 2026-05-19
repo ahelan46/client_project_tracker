@@ -84,6 +84,56 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Team Assignment & Execution Details -->
+                <div class="mb-4 p-3 rounded-3 bg-light border border-light-subtle">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-bold text-main">Execution Team</span>
+                        {% with assignment=project.get_accepted_assignment %}
+                            {% if assignment %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-0.5 rounded-pill" style="font-size: 0.65rem;">
+                                    <i class="fas fa-check-circle me-1"></i> Accepted by Team Leader
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle px-2 py-0.5 rounded-pill" style="font-size: 0.65rem;">
+                                    <i class="fas fa-clock me-1"></i> Pending Team Leader
+                                </span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+
+                    {% with leader=project.get_team_leader %}
+                        {% if leader %}
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <img src="https://ui-avatars.com/api/?name={{ leader.username }}&background=10b981&color=fff" class="rounded-circle border" width="24" height="24" title="Team Leader">
+                                <div>
+                                    <span class="x-small text-muted d-block" style="font-size: 0.65rem;">Team Leader</span>
+                                    <span class="small fw-bold text-main">{{ leader.get_full_name|default:leader.username }}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Team Members Avatars -->
+                            <div class="d-flex align-items-center justify-content-between pt-2 border-top border-light-subtle">
+                                <div class="avatar-group d-flex align-items-center">
+                                    {% for member in project.get_team_members %}
+                                        <div class="avatar-bubble" title="Developer: {{ member.get_full_name|default:member.username }}" style="width: 24px; height: 24px; font-size: 0.65rem; margin-left: -6px; border: 1.5px solid #fff; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background-color: #e2e8f0; color: #475569;">
+                                            {{ member.username|slice:":1"|upper }}
+                                        </div>
+                                    {% empty %}
+                                        <span class="text-muted x-small">No members joined yet</span>
+                                    {% endfor %}
+                                </div>
+                                <span class="x-small text-success fw-semibold" style="font-size: 0.65rem;">
+                                    <i class="fas fa-check-double me-1"></i>{{ project.get_completed_team_projects_count }} Projects Done
+                                </span>
+                            </div>
+                        {% else %}
+                            <div class="text-muted small py-1 text-center">
+                                <i class="fas fa-users-slash me-1"></i> No execution team assigned yet.
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
             </div>
 
             <!-- Card Footer -->
