@@ -363,6 +363,34 @@
         });
 
         calendar.render();
+    // Deadline data from Django context
+    const deadlineData = {{ deadline_dict|safe }};
+    const year = {{ year }};
+    const month = {{ month }};
+    
+    // Populate calendar events
+    document.querySelectorAll('.calendar-day[data-date]').forEach(function(dayElement) {
+        const monthDay = dayElement.getAttribute('data-date');
+        // Format: YYYY-MM-DD
+        const fullDateStr = year + '-' + monthDay;
+        
+        if (deadlineData[fullDateStr]) {
+            const container = dayElement.querySelector('.calendar-events-container');
+            deadlineData[fullDateStr].forEach(function(item) {
+                const event = document.createElement('div');
+                const titleText = item.title.length > 15 ? item.title.substring(0, 12) + '...' : item.title;
+                
+                if (item.type === 'project') {
+                    event.className = 'calendar-event bg-danger-subtle text-danger';
+                    event.textContent = '📋 ' + titleText;
+                } else {
+                    event.className = 'calendar-event bg-primary-subtle text-primary';
+                    event.textContent = '✓ ' + titleText;
+                }
+                event.title = item.title;
+                container.appendChild(event);
+            });
+        }
     });
 
     // Toast alert triggers

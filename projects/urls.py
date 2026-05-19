@@ -36,6 +36,5 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('feedback/<int:pk>/edit/', views.edit_feedback, name='edit_feedback'),
-    path('payments/', views.payments_view, name='payments'),
-    path('settings/', views.settings_view, name='settings'),
+
 ]

@@ -244,6 +244,7 @@
                 {% endif %}
 
                 <!-- 3. Projects -->
+                {% if user.profile.role != 'team_leader' %}
                 <div class="nav-item-custom">
                     {% if user.profile.role == 'client' %}
                     <a href="{% url 'client_projects' %}"
@@ -259,6 +260,15 @@
                     </a>
                     {% endif %}
                 </div>
+                {% endif %}
+
+                {% if user.profile.role == 'team_leader' %}
+                <div class="nav-item-custom">
+                    <a href="{% url 'team_leader_projects' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'team_leader_projects' %}active{% endif %}" title="Assigned Projects">
+                        <i class="fas fa-inbox"></i> <span class="nav-link-text">My Assignments</span>
+                    </a>
+                </div>
+                {% endif %}
 
                 <!-- 4. Tasks -->
                 <div class="nav-item-custom">
@@ -288,8 +298,8 @@
                 <div class="nav-item-custom">
                     <a href="{% url 'messages' %}"
                         class="nav-link-custom {% if request.resolver_match.url_name == 'messages' %}active{% endif %}"
-                        title="Messages">
-                        <i class="fas fa-envelope"></i> <span class="nav-link-text">Messages</span>
+                        title="Discussion">
+                        <i class="fas fa-comments"></i> <span class="nav-link-text">Discussion</span>
                     </a>
                 </div>
 
