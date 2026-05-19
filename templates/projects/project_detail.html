@@ -58,7 +58,9 @@
         <div class="glass-card">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h5 class="fw-bold mb-0">Project Tasks</h5>
-                <a href="{% url 'admin:projects_task_add' %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i>Add Task</a>
+                {% if user.profile.role == 'team_leader' %}
+                <a href="{% url 'task_board' %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i>Add Task</a>
+                {% endif %}
             </div>
             
             <div class="list-group list-group-flush bg-transparent">

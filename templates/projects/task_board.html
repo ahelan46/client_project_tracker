@@ -183,9 +183,11 @@
         <h2 class="fw-bold mb-1 text-main">Task Workspace</h2>
         <p class="text-muted small mb-0">Drag and drop tasks, track progress columns, and organize deliverables.</p>
     </div>
-    <button class="btn btn-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+    {% if user.profile.role == 'team_leader' %}
+    <button style="background-color: #0d6efd; color: white; border-radius: 20px;" class="btn btn-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addTaskModal">
         <i class="fas fa-plus"></i> Add Task
     </button>
+    {% endif %}
 </div>
 
 <!-- Task Filters Card -->

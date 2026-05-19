@@ -548,23 +548,66 @@ def task_list(request):
 
 @login_required
 def task_board(request):
-    user_role = request.user.profile.role
+    try:
+        user_role = request.user.profile.role
+    except UserProfile.DoesNotExist:
+        user_role = 'team_member'
+
+    # Clients and Admins cannot view or access the Tasks page
+    if user_role in ['client', 'admin']:
+        return redirect('dashboard')
+
     if user_role == 'project_manager':
         projects = Project.objects.filter(manager=request.user)
         tasks = Task.objects.filter(project__manager=request.user)
+    elif user_role == 'team_leader':
+        assigned_project_ids = ProjectAssignment.objects.filter(
+            team_leader=request.user,
+            status='accepted'
+        ).values_list('project_id', flat=True)
+        projects = Project.objects.filter(id__in=assigned_project_ids)
+        tasks = Task.objects.filter(project__in=projects)
+    elif user_role == 'team_member':
+        tasks = Task.objects.filter(assigned_to=request.user)
+        projects = Project.objects.filter(tasks__assigned_to=request.user).distinct()
     else:
         tasks = Task.objects.all()
         projects = Project.objects.all()
 
+    allowed_projects = Project.objects.all()
+    allowed_members = User.objects.all()
+
+    if user_role == 'team_leader':
+        assigned_project_ids = ProjectAssignment.objects.filter(
+            team_leader=request.user,
+            status='accepted'
+        ).values_list('project_id', flat=True)
+        allowed_projects = Project.objects.filter(id__in=assigned_project_ids)
+        
+        allowed_teams = Team.objects.filter(leaders=request.user)
+        allowed_members = User.objects.filter(teams_joined__in=allowed_teams, profile__role='team_member').distinct()
+
     if request.method == 'POST':
+        # Only team leaders can add tasks
+        if user_role != 'team_leader':
+            return redirect('task_board')
+            
         form = TaskForm(request.POST)
+        if user_role == 'team_leader':
+            form.fields['project'].queryset = allowed_projects
+            form.fields['assigned_to'].queryset = allowed_members
+
         if form.is_valid():
             form.save()
             return redirect('task_board')
     else:
         form = TaskForm()
-        if user_role == 'project_manager':
-            form.fields['project'].queryset = Project.objects.filter(manager=request.user)
+        if user_role == 'team_leader':
+            form.fields['project'].queryset = allowed_projects
+            form.fields['assigned_to'].queryset = allowed_members
+        else:
+            form.fields['project'].queryset = allowed_projects
+            form.fields['assigned_to'].queryset = allowed_members
 
     today = date.today()
     return render(request, 'projects/task_board.html', {'tasks': tasks, 'projects': projects, 'form': form, 'today': today})
@@ -591,7 +634,15 @@ def approve_report(request, pk):
 # Calendar and Messages
 @login_required
 def calendar_view(request):
-    user_role = request.user.profile.role
+    try:
+        user_role = request.user.profile.role
+    except UserProfile.DoesNotExist:
+        user_role = 'team_member'
+
+    # Clients cannot view or access the Calendar page
+    if user_role == 'client':
+        return redirect('dashboard')
+
     if user_role == 'project_manager':
         projects = Project.objects.filter(manager=request.user)
         tasks = Task.objects.filter(project__manager=request.user)
@@ -804,10 +855,14 @@ def messages_view(request):
     return render(request, 'projects/messages.html', {'messages': messages, 'projects': projects})
 
 @login_required
-@login_required
 def teams(request):
-    if request.user.profile.role != 'project_manager':
-        return render(request, 'projects/teams.html', {'error': 'Access denied'})
+    try:
+        user_role = request.user.profile.role
+    except UserProfile.DoesNotExist:
+        user_role = 'team_member'
+
+    if user_role != 'project_manager':
+        return redirect('dashboard')
 
     # Get all team leaders (users with team_leader role)
     team_leaders = User.objects.filter(profile__role='team_leader')
@@ -1176,6 +1231,10 @@ def payments_view(request):
         user_role = request.user.profile.role
     except UserProfile.DoesNotExist:
         user_role = 'team_member'
+
+    # Team leaders and Team members cannot view or access the Payments page
+    if user_role in ['team_leader', 'team_member']:
+        return redirect('dashboard')
         
     if user_role == 'client':
         invoices = Invoice.objects.filter(client__email=request.user.email).order_by('-created_at')

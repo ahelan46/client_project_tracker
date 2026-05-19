@@ -270,6 +270,7 @@
                 </div>
                 {% endif %}
 
+                {% if user.profile.role != 'client' and user.profile.role != 'admin' %}
                 <!-- 4. Tasks -->
                 <div class="nav-item-custom">
                     {% if user.profile.role == 'client' %}
@@ -284,7 +285,9 @@
                     </a>
                     {% endif %}
                 </div>
+                {% endif %}
 
+                {% if user.profile.role != 'client' %}
                 <!-- 5. Calendar -->
                 <div class="nav-item-custom">
                     <a href="{% url 'calendar' %}"
@@ -293,6 +296,7 @@
                         <i class="fas fa-calendar-alt"></i> <span class="nav-link-text">Calendar</span>
                     </a>
                 </div>
+                {% endif %}
 
                 <!-- 6. Messages -->
                 <div class="nav-item-custom">
@@ -329,6 +333,7 @@
                     {% endif %}
                 </div>
 
+                {% if user.profile.role != 'team_leader' and user.profile.role != 'team_member' %}
                 <!-- 9. Payments (Invoices) -->
                 <div class="nav-item-custom">
                     <a href="{% url 'payments' %}"
@@ -337,9 +342,10 @@
                         <i class="fas fa-credit-card"></i> <span class="nav-link-text">Payments</span>
                     </a>
                 </div>
+                {% endif %}
 
+                {% if user.profile.role != 'client' and user.profile.role != 'team_member' %}
                 <!-- 10. Team (Staff Only) -->
-                {% if user.profile.role != 'client' %}
                 <div class="nav-item-custom">
                     <a href="{% url 'teams' %}"
                         class="nav-link-custom {% if request.resolver_match.url_name == 'teams' %}active{% endif %}"
