@@ -272,9 +272,15 @@
                     <div class="text-end">
                         <span class="d-block x-small text-uppercase fw-semibold text-muted mb-1.5">Team Assignees</span>
                         <div class="avatar-group d-flex align-items-center justify-content-end">
-                            <div class="avatar-bubble" title="Project Manager">
-                                {{ project.manager.username|slice:":1"|upper|default:"?" }}
+                            {% if project.manager %}
+                            <div class="avatar-bubble" title="Project Manager: {{ project.manager.username }}">
+                                {{ project.manager.username|slice:":1"|upper }}
                             </div>
+                            {% else %}
+                            <div class="avatar-bubble bg-light text-muted" title="Unassigned Manager">
+                                ?
+                            </div>
+                            {% endif %}
                             <div class="avatar-bubble bg-info bg-opacity-10 text-info" title="Linked Client">
                                 {{ project.client.name|slice:":1"|upper }}
                             </div>
@@ -328,10 +334,17 @@
                     </td>
                     <td>
                         <div class="d-flex align-items-center gap-2">
+                            {% if project.manager %}
                             <div class="avatar-bubble bg-light border-0 m-0 text-center" style="width: 28px; height: 28px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
-                                {{ project.manager.username|slice:":1"|upper|default:"?" }}
+                                {{ project.manager.username|slice:":1"|upper }}
                             </div>
-                            <span class="text-main small">{{ project.manager.get_full_name|default:project.manager.username|default:"Unassigned" }}</span>
+                            <span class="text-main small">{{ project.manager.get_full_name|default:project.manager.username }}</span>
+                            {% else %}
+                            <div class="avatar-bubble bg-light border-0 m-0 text-center text-muted" style="width: 28px; height: 28px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
+                                ?
+                            </div>
+                            <span class="text-main small text-muted">Unassigned</span>
+                            {% endif %}
                         </div>
                     </td>
                     <td>

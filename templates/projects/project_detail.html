@@ -43,7 +43,7 @@
                 <div class="col-md-4">
                     <div class="p-3 rounded bg-dark border border-secondary border-opacity-25">
                         <small class="text-muted d-block">Manager</small>
-                        <span class="fw-bold"><i class="fas fa-user-tie me-2 text-primary"></i>{{ project.manager.username }}</span>
+                        <span class="fw-bold"><i class="fas fa-user-tie me-2 text-primary"></i>{% if project.manager %}{{ project.manager.username }}{% else %}Unassigned{% endif %}</span>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -70,7 +70,7 @@
                         </div>
                         <div class="flex-grow-1">
                             <h6 class="mb-0 fw-bold {% if task.status == 'done' %}text-muted text-decoration-line-through{% endif %}">{{ task.title }}</h6>
-                            <small class="text-muted">Assigned to: {{ task.assigned_to.username }} • Due: {{ task.deadline }}</small>
+                            <small class="text-muted">Assigned to: {% if task.assigned_to %}{{ task.assigned_to.username }}{% else %}Unassigned{% endif %} • Due: {{ task.deadline }}</small>
                         </div>
                         <div class="flex-shrink-0">
                             <span class="badge {% if task.status == 'done' %}bg-success-soft{% elif task.status == 'in_progress' %}bg-warning-soft{% else %}bg-secondary-soft{% endif %}">
