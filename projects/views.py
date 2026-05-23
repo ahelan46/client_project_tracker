@@ -6,7 +6,7 @@ from django.db.models import Count, Q
 from django.contrib import messages
 from .models import Client, Project, Task, Notification, Report, Message, Team, UserProfile, ProjectFile, Feedback, Meeting, Invoice, MeetingNote, ActivityLog, ClientPermission, ProjectAssignment, Attendance, BreakLog, LeaveRequest, LeaveBalance, ProductivityLog
 from .forms import SignUpForm, ProjectForm, TaskForm, ReportForm, FeedbackForm, ClientProjectForm, ProjectAssignmentForm
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.template.loader import get_template, TemplateDoesNotExist
@@ -1483,7 +1483,95 @@ def quick_assign_project(request, project_id, team_leader_id):
         assignment.save()
     
     return redirect('teams')
+@login_required
+def admin_users_list(request):
+    """Return list of all users for admin panel"""
+    # Check if user is admin
+    if request.user.profile.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+    
+    from django.contrib.auth.models import User
+    from django.db.models import Count
+    
+    users = User.objects.exclude(profile__role='client').select_related('profile').annotate(
+        projects_count=Count('managed_projects')
+    )
+    
+    user_list = []
+    for user in users:
+        user_list.append({
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.get_full_name(),
+            'email': user.email,
+            'role': user.profile.role,
+            'role_display': user.profile.get_role_display(),
+            'is_active': user.is_active,
+            'is_frozen': user.profile.is_frozen,  # Add this line
+            'last_login': user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else None,
+            'projects_count': user.projects_count,
+        })
+    
+    return JsonResponse({'status': 'success', 'users': user_list})
 
+@login_required
+def user_frozen_page(request):
+    """Page shown when user account is frozen"""
+    return render(request, 'projects/frozen_page.html', {
+        'user': request.user,
+        'frozen_reason': 'Your account has been frozen by administrator.'
+    })
+
+@login_required
+def admin_users_freeze(request):
+    """Admin page to manage user access"""
+    if request.user.profile.role != 'admin':
+        return redirect('dashboard')
+    return render(request, 'projects/frezze.html')
+
+@login_required
+@require_POST
+def admin_update_user_status(request):
+    """Update user active status and frozen status (on/off/freeze)"""
+    # Check if user is admin
+    if request.user.profile.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        users_to_update = data.get('users', [])
+        
+        from django.contrib.auth.models import User
+        
+        for item in users_to_update:
+            user_id = item.get('user_id')
+            is_active = item.get('is_active')
+            is_frozen = item.get('is_frozen')  # Add this field
+            
+            if user_id and is_active is not None:
+                user = User.objects.get(id=user_id)
+                # Don't allow disabling own account
+                if user.id == request.user.id:
+                    continue
+                user.is_active = is_active
+                user.save()
+                
+                # Update frozen status if provided
+                if is_frozen is not None:
+                    user.profile.is_frozen = is_frozen
+                    user.profile.save()
+                
+                # Log activity
+                ActivityLog.objects.create(
+                    user=request.user,
+                    activity_type='User Access Changed',
+                    description=f"{'Enabled' if is_active else 'Disabled'} access for user {user.username}" + (f" (Frozen: {is_frozen})" if is_frozen is not None else "")
+                )
+        
+        return JsonResponse({'status': 'success', 'message': 'User status updated successfully'})
+        
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 # ==========================================
 # ATTENDANCE & LEAVE MANAGEMENT SYSTEM VIEWS
 # ==========================================
@@ -1625,6 +1713,8 @@ def attendance_dashboard(request):
     else:
         pending_leaves = []
     # If Team Leader, get their team's attendance status and leaves
+    # If Team Leader, get their team's attendance status and leaves
+        # If Team Leader, get their team's attendance status and leaves
     if user_role == 'team_leader':
         teams_led = Team.objects.filter(leaders=request.user)
         if teams_led.exists():
@@ -1632,10 +1722,12 @@ def attendance_dashboard(request):
         else:
             team_users = User.objects.filter(profile__role='team_member')
         
+        # Build team members list with all required fields - FIXED INDENTATION
         for u in team_users:
             att = Attendance.objects.filter(user=u, date=today).first()
             team_members.append({
                 'user': u,
+                'attendance_id': att.id if att else None,
                 'status': att.status if att else 'absent',
                 'check_in': att.check_in if att else None,
                 'check_out': att.check_out if att else None,
@@ -1643,12 +1735,16 @@ def attendance_dashboard(request):
                 'device': att.device if att else 'N/A',
                 'mood': att.mood if att else None,
                 'today_work': att.today_work if att else None,
-                'progress': att.progress if att else 0
+                'blockers': att.blockers if att else None,
+                'progress': att.progress if att else 0,
+                'latitude': float(att.latitude) if att and att.latitude else None,
+                'longitude': float(att.longitude) if att and att.longitude else None,
+                'check_in_photo': bool(att.check_in_photo) if att else False,
             })
-            
+        
         pending_leaves = LeaveRequest.objects.filter(user__in=team_users, status='pending').order_by('-created_at')
-
-    # If PM, get department-wide attendance and productivity
+        # If PM, get department-wide attendance and productivity
+       # If PM, get department-wide attendance and productivity
     elif user_role == 'project_manager':
         employees = User.objects.filter(profile__role__in=['team_leader', 'team_member']).distinct()
         for u in employees:
@@ -1656,31 +1752,42 @@ def attendance_dashboard(request):
             prod = ProductivityLog.objects.filter(user=u, date=today).first()
             team_members.append({
                 'user': u,
+                'attendance_id': att.id if att else None,
                 'status': att.status if att else 'absent',
                 'check_in': att.check_in if att else None,
                 'check_out': att.check_out if att else None,
                 'location': att.location if att else 'N/A',
                 'device': att.device if att else 'N/A',
                 'mood': att.mood if att else None,
-                'efficiency': prod.efficiency if prod else 0,
-                'tasks_completed': prod.tasks_completed if prod else 0
+                'today_work': att.today_work if att else None,
+                'blockers': att.blockers if att else None,
+                'progress': att.progress if att else 0,
+                'latitude': float(att.latitude) if att and att.latitude else None,
+                'longitude': float(att.longitude) if att and att.longitude else None,
+                'check_in_photo': bool(att.check_in_photo) if att else False,
             })
             
         pending_leaves = LeaveRequest.objects.filter(status='pending').order_by('-created_at')
-
-    # If Admin, company-wide
+        # If Admin, company-wide
     elif user_role == 'admin':
         employees = User.objects.exclude(profile__role='client').distinct()
         for u in employees:
             att = Attendance.objects.filter(user=u, date=today).first()
             team_members.append({
                 'user': u,
+                'attendance_id': att.id if att else None,
                 'status': att.status if att else 'absent',
                 'check_in': att.check_in if att else None,
                 'check_out': att.check_out if att else None,
                 'location': att.location if att else 'N/A',
                 'device': att.device if att else 'N/A',
-                'mood': att.mood if att else None
+                'mood': att.mood if att else None,
+                'today_work': att.today_work if att else None,
+                'blockers': att.blockers if att else None,
+                'progress': att.progress if att else 0,
+                'latitude': float(att.latitude) if att and att.latitude else None,
+                'longitude': float(att.longitude) if att and att.longitude else None,
+                'check_in_photo': bool(att.check_in_photo) if att else False,
             })
             
         pending_leaves = LeaveRequest.objects.filter(status='pending').order_by('-created_at')
@@ -1689,7 +1796,6 @@ def attendance_dashboard(request):
         present_today = Attendance.objects.filter(date=today, status__in=['present', 'late']).count()
         total_emp = employees.count()
         company_attendance_pct = int((present_today / total_emp) * 100) if total_emp > 0 else 100
-
     # Team Ranking (by efficiency of current week)
     team_rankings = []
     employees_ranking = User.objects.exclude(profile__role='client')
@@ -1756,70 +1862,135 @@ def attendance_dashboard(request):
 @login_required
 @require_POST
 def attendance_check_in(request):
-    location = request.POST.get('location', 'office')
-    device = request.POST.get('device', 'desktop')
-    mood = request.POST.get('mood', '😊 Happy')
-    check_in_method = request.POST.get('method', 'standard') 
-    today = date.today()
-    
-    attendance, created = Attendance.objects.get_or_create(
-        user=request.user,
-        date=today,
-        defaults={
-            'check_in': timezone.now(),
-            'location': location,
-            'device': device,
-            'mood': mood,
-        }
-    )
-    
-    if not created:
-        if not attendance.check_in:
+    """Handle check-in with location and device tracking"""
+    try:
+        from datetime import time  # Add this import inside the function as well
+        
+        location = request.POST.get('location', 'office')
+        device = request.POST.get('device', 'desktop')
+        mood = request.POST.get('mood', '😊 Happy')
+        check_in_method = request.POST.get('method', 'standard')
+        latitude = request.POST.get('latitude')
+        longitude = request.POST.get('longitude')
+        photo_data = request.POST.get('photo')  # Base64 image data
+        today = date.today()
+        
+        # Check if already checked in
+        existing = Attendance.objects.filter(user=request.user, date=today, check_out__isnull=True).first()
+        if existing:
+            return JsonResponse({
+                'status': 'error', 
+                'message': 'You are already checked in today!'
+            }, status=400)
+        
+        attendance, created = Attendance.objects.get_or_create(
+            user=request.user,
+            date=today,
+            defaults={
+                'check_in': timezone.now(),
+                'location': location,
+                'device': device,
+                'mood': mood,
+            }
+        )
+        
+        if not created and not attendance.check_in:
             attendance.check_in = timezone.now()
             attendance.location = location
             attendance.device = device
             attendance.mood = mood
             attendance.save()
-            
-    current_time = timezone.localtime(attendance.check_in).time()
-    from datetime import time
-    late_threshold = time(9, 15) # 9:15 AM
-    if current_time > late_threshold:
-        attendance.status = 'late'
-    else:
-        attendance.status = 'present'
+        elif not created and attendance.check_in:
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Already checked in at {attendance.check_in.strftime("%I:%M %p")}'
+            }, status=400)
         
-    prev_att = Attendance.objects.filter(user=request.user, date=today - timedelta(days=1)).first()
-    if prev_att and prev_att.status in ['present', 'late']:
-        attendance.streak = prev_att.streak + 1
+        # Save geo location if provided
+        if latitude and longitude:
+            attendance.latitude = float(latitude)
+            attendance.longitude = float(longitude)
+        
+        # Save photo if provided (for face check-in)
+        if photo_data:
+            attendance.check_in_photo = photo_data
+            attendance.photo_captured_at = timezone.now()
+            print(f"✅ Photo saved for user {request.user.username}, length: {len(photo_data)} characters")
+        # Determine status based on check-in time
+        current_time = timezone.localtime(attendance.check_in).time()
+        late_threshold = time(9, 15)  # This uses the imported 'time' class
+        
+        if current_time > late_threshold:
+            attendance.status = 'late'
+        else:
+            attendance.status = 'present'
+        
+        # Calculate streak
+        prev_att = Attendance.objects.filter(
+            user=request.user, 
+            date=today - timedelta(days=1)
+        ).first()
+        
+        if prev_att and prev_att.status in ['present', 'late']:
+            attendance.streak = prev_att.streak + 1
+        else:
+            attendance.streak = 1
+        
+        attendance.save()
+        
+        # Log activity
+        ActivityLog.objects.create(
+            user=request.user,
+            activity_type='Check In',
+            description=f"Checked in at {timezone.localtime(attendance.check_in).strftime('%I:%M %p')} ({location.title()}, Method: {check_in_method.title()})"
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Checked in successfully!',
+            'check_in_time': timezone.localtime(attendance.check_in).strftime('%I:%M %p'),
+            'attendance_status': attendance.status,
+            'streak': attendance.streak,
+            'latitude': str(attendance.latitude) if attendance.latitude else None,
+            'longitude': str(attendance.longitude) if attendance.longitude else None
+        })
+        
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+@login_required
+def get_attendance_photo(request, attendance_id):
+    """Return the check-in photo for an attendance record"""
+    from django.core.files.base import ContentFile
+    import base64
+    
+    attendance = get_object_or_404(Attendance, pk=attendance_id)
+    
+    # Check permission
+    user_role = request.user.profile.role
+    if user_role == 'team_member' and attendance.user != request.user:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    if attendance.check_in_photo:
+        # Debug line
+        print(f"✅ Photo found, length: {len(attendance.check_in_photo)} characters")
+        # Check if it's already a full data URL or just base64
+        photo = attendance.check_in_photo
+        if not photo.startswith('data:image'):
+            # If it's raw base64, add the data URL prefix
+            photo = f'data:image/jpeg;base64,{photo}'
+        
+        return JsonResponse({
+            'status': 'success',
+            'photo': photo,
+            'user': attendance.user.get_full_name() or attendance.user.username,
+            'date': attendance.date.strftime('%Y-%m-%d'),
+            'time': attendance.check_in.strftime('%I:%M %p') if attendance.check_in else 'N/A',
+            'location': f"{attendance.latitude}, {attendance.longitude}" if attendance.latitude else 'Not captured'
+        })
     else:
-        attendance.streak = 1
-    attendance.save()
-
-    ActivityLog.objects.create(
-        user=request.user,
-        activity_type='Check In',
-        description=f"Checked in at {timezone.localtime(attendance.check_in).strftime('%I:%M %p')} ({location.title()}, Method: {check_in_method.title()})"
-    )
-
-    ProductivityLog.objects.get_or_create(
-        user=request.user,
-        date=today,
-        defaults={
-            'efficiency': 90,
-            'focus_time_seconds': 0
-        }
-    )
-
-    return JsonResponse({
-        'status': 'success',
-        'message': 'Checked in successfully!',
-        'check_in_time': timezone.localtime(attendance.check_in).strftime('%I:%M %p'),
-        'attendance_status': attendance.status,
-        'streak': attendance.streak
-    })
-
-
+        return JsonResponse({'status': 'error', 'message': 'No photo available'}, status=404)
+       
 @login_required
 @require_POST
 def attendance_check_out(request):

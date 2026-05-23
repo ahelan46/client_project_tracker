@@ -235,6 +235,38 @@
 .wizard-step-pane.active {
     display: block;
 }
+/* Hide sidebar on this page only */
+    .sidebar {
+        display: none !important;
+    }
+    .content-body {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    /* Hide the top navigation bar */
+    .top-navbar {
+        display: none !important;
+    }
+    /* Adjust main wrapper to remove the top padding (since navbar is gone) */
+    .main-wrapper {
+        padding-top: 0 !important;
+    }
+    /* Optional: hide the hamburger menu button as well */
+    .hamburger-btn {
+        display: none !important;
+    }
+    /* Hide sidebar on this page only */
+    .sidebar {
+        display: none !important;
+    }
+    .content-body {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    /* Optional: hide the hamburger menu button as well */
+    .hamburger-btn {
+        display: none !important;
+    }
 </style>
 
 {% block extra_js %}

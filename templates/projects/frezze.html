@@ -1,0 +1,732 @@
+{% extends 'base.html' %}
+
+{% block title %}User Access Control | Admin Panel{% endblock %}
+
+{% block content %}
+<style>
+    .access-card {
+        border-radius: 16px;
+        border: 1px solid var(--border-color);
+        background: var(--card-bg);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .access-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .status-badge-active {
+        background: #10b98120;
+        color: #10b981;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-badge-inactive {
+        background: #ef444420;
+        color: #ef4444;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+    
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ef4444;
+        transition: 0.3s;
+        border-radius: 34px;
+    }
+    
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+    }
+    
+    input:checked + .toggle-slider {
+        background-color: #10b981;
+    }
+    
+    input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+    }
+    
+    .role-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .role-admin {
+        background: #8b5cf620;
+        color: #8b5cf6;
+    }
+    
+    .role-project_manager {
+        background: #3b82f620;
+        color: #3b82f6;
+    }
+    
+    .role-team_leader {
+        background: #f59e0b20;
+        color: #f59e0b;
+    }
+    
+    .role-team_member {
+        background: #10b98120;
+        color: #10b981;
+    }
+    
+    .filter-btn {
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        border: 1px solid var(--border-color);
+        background: transparent;
+        color: var(--text-muted);
+    }
+    
+    .filter-btn:hover, .filter-btn.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+    
+    .search-box {
+        position: relative;
+        max-width: 300px;
+    }
+    
+    .search-box i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+    
+    .search-box input {
+        padding-left: 35px;
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
+        background: var(--card-bg);
+        color: var(--text-main);
+    }
+    
+    .table-users th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .table-users td {
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .avatar-small {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    @media (max-width: 768px) {
+        .table-responsive {
+            font-size: 0.8rem;
+        }
+        .toggle-switch {
+            width: 50px;
+            height: 28px;
+        }
+        .toggle-slider:before {
+            height: 22px;
+            width: 22px;
+        }
+        input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+    }
+    .status-badge-warning {
+    background: #f59e0b20;
+    color: #f59e0b;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+</style>
+
+<div class="container-fluid px-0">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1 text-main">
+                <i class="fas fa-user-lock text-primary me-2"></i>User Access Control
+            </h2>
+            <p class="text-muted small mb-0">Manage access permissions for all users in the system</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i> Refresh
+            </button>
+            <button class="btn btn-primary btn-sm" id="saveAllBtn">
+                <i class="fas fa-save me-1"></i> Save All Changes
+            </button>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="access-card p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small">Total Users</span>
+                        <h3 class="fw-bold mb-0 text-main" id="totalUsers">0</h3>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
+                        <i class="fas fa-users text-primary fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="access-card p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small">Active Users</span>
+                        <h3 class="fw-bold mb-0 text-success" id="activeUsers">0</h3>
+                    </div>
+                    <div class="bg-success bg-opacity-10 p-3 rounded-circle">
+                        <i class="fas fa-check-circle text-success fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="access-card p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small">Inactive Users</span>
+                        <h3 class="fw-bold mb-0 text-danger" id="inactiveUsers">0</h3>
+                    </div>
+                    <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
+                        <i class="fas fa-ban text-danger fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="access-card p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small">Pending Changes</span>
+                        <h3 class="fw-bold mb-0 text-warning" id="pendingChanges">0</h3>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 p-3 rounded-circle">
+                        <i class="fas fa-clock text-warning fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="access-card p-3 mb-4">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-4">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search by name, email, or role...">
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="filter-btn active" data-filter="all">All Users</button>
+                    <button class="filter-btn" data-filter="project_manager">Project Managers</button>
+                    <button class="filter-btn" data-filter="team_leader">Team Leaders</button>
+                    <button class="filter-btn" data-filter="team_member">Team Members</button>
+                    <button class="filter-btn" data-filter="active">Active Only</button>
+                    <button class="filter-btn" data-filter="inactive">Inactive Only</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Users Table -->
+    <div class="access-card overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-users mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">S:no</th>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Last Login</th>
+                        <th>Projects Assigned</th>
+                        <th style="width: 140px;">Access</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    <!-- Users will be populated via JavaScript -->
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" class="access-toggle" data-user-id="${user.id}" 
+                                        ${currentStatus ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="freeze-switch" style="position: relative; display: inline-block; width: 60px; height: 34px;">
+                                    <input type="checkbox" class="freeze-toggle" data-user-id="${user.id}" 
+                                        ${user.is_frozen ? 'checked' : ''}>
+                                    <span class="freeze-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #f59e0b; transition: 0.3s; border-radius: 34px;"></span>
+                                    <span class="freeze-slider:before" style="position: absolute; content: ''; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: 0.3s; border-radius: 50%;"></span>
+                                </label>
+                            </div>
+                            <div class="x-small text-muted mt-1">
+                                <span id="status-text-${user.id}">${user.is_frozen ? '❄️ Frozen' : (currentStatus ? '🟢 Active' : '🔴 Inactive')}</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Save Confirmation Modal -->
+    <div class="modal fade" id="saveConfirmModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Save Changes</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to save all changes?</p>
+                    <p class="text-muted small mb-0">This will update access status for <span id="changeCount">0</span> user(s).</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmSaveBtn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toggle Confirmation Modal -->
+    <div class="modal fade" id="toggleConfirmModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Access Change</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to <strong id="toggleAction">disable</strong> access for <strong id="toggleUserName"></strong>?</p>
+                    <p class="text-muted small">This user will not be able to log in until access is restored.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmToggleBtn">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Global variables
+    let usersData = [];
+    let pendingChanges = {};
+    let currentFilter = 'all';
+    let searchQuery = '';
+    let pendingToggle = null;
+    
+    // Fetch users from server
+    // Fetch users from server
+    async function fetchUsers() {
+        try {
+            const response = await fetch('/user-mgmt/list/');  // Changed from /admin/users/list/
+            const data = await response.json();
+            if (data.status === 'success') {
+                usersData = data.users;
+                updateStats();
+                renderTable();
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            document.getElementById('usersTableBody').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-danger">
+                        <i class="fas fa-exclamation-circle fa-2x mb-2 d-block"></i>
+                        Error loading users. Please refresh the page.
+                    </td>
+                </tr>
+            `;
+        }
+    }
+    // Update statistics
+    function updateStats() {
+        const total = usersData.length;
+        const active = usersData.filter(u => u.is_active).length;
+        const inactive = total - active;
+        const pending = Object.keys(pendingChanges).length;
+        
+        document.getElementById('totalUsers').textContent = total;
+        document.getElementById('activeUsers').textContent = active;
+        document.getElementById('inactiveUsers').textContent = inactive;
+        document.getElementById('pendingChanges').textContent = pending;
+    }
+    
+    // Filter users based on search and role filter
+    function getFilteredUsers() {
+        let filtered = [...usersData];
+        
+        // Apply search filter
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(user => 
+                user.username.toLowerCase().includes(query) ||
+                (user.full_name && user.full_name.toLowerCase().includes(query)) ||
+                user.email.toLowerCase().includes(query) ||
+                user.role_display.toLowerCase().includes(query)
+            );
+        }
+        
+        // Apply role filter
+        if (currentFilter !== 'all' && currentFilter !== 'active' && currentFilter !== 'inactive') {
+            filtered = filtered.filter(user => user.role === currentFilter);
+        } else if (currentFilter === 'active') {
+            filtered = filtered.filter(user => user.is_active);
+        } else if (currentFilter === 'inactive') {
+            filtered = filtered.filter(user => !user.is_active);
+        }
+        
+        return filtered;
+    }
+    
+  // Update the renderTable function to include freeze toggle
+    function renderTable() {
+        const filteredUsers = getFilteredUsers();
+        const tbody = document.getElementById('usersTableBody');
+        
+        if (filteredUsers.length === 0) {
+            tbody.innerHTML = `...`; // Keep as is
+            return;
+        }
+        
+        tbody.innerHTML = filteredUsers.map((user, index) => {
+            const currentStatus = pendingChanges[user.id] !== undefined ? pendingChanges[user.id] : user.is_active;
+            const isFrozen = user.is_frozen;
+            const roleClass = `role-${user.role}`;
+            
+            let roleIcon = '';
+            if (user.role === 'admin') roleIcon = '<i class="fas fa-crown me-1"></i>';
+            else if (user.role === 'project_manager') roleIcon = '<i class="fas fa-chart-line me-1"></i>';
+            else if (user.role === 'team_leader') roleIcon = '<i class="fas fa-users me-1"></i>';
+            else if (user.role === 'team_member') roleIcon = '<i class="fas fa-user-check me-1"></i>';
+            
+            let avatarColor = '#3b82f6';
+            if (user.role === 'admin') avatarColor = '#8b5cf6';
+            else if (user.role === 'project_manager') avatarColor = '#3b82f6';
+            else if (user.role === 'team_leader') avatarColor = '#f59e0b';
+            else if (user.role === 'team_member') avatarColor = '#10b981';
+            
+            let statusText = '';
+            let statusClass = '';
+            if (isFrozen) {
+                statusText = '❄️ Frozen';
+                statusClass = 'status-badge-warning';
+            } else if (currentStatus) {
+                statusText = '🟢 Active';
+                statusClass = 'status-badge-active';
+            } else {
+                statusText = '🔴 Inactive';
+                statusClass = 'status-badge-inactive';
+            }
+            
+            return `
+                <tr data-user-id="${user.id}">
+                    <td class="text-muted small">${index + 1}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="avatar-small" style="background: ${avatarColor}20; color: ${avatarColor};">
+                                ${user.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="fw-semibold text-main">${user.full_name || user.username}</div>
+                                <div class="x-small text-muted">@${user.username}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-muted small">${user.email}</td>
+                    <td>
+                        <span class="role-badge ${roleClass}">${roleIcon} ${user.role_display}</span>
+                    </td>
+                    <td>
+                        <span class="${statusClass}">
+                            ${statusText}
+                        </span>
+                    </td>
+                    <td class="text-muted small">${user.last_login || 'Never'}</td>
+                    <td class="text-muted small">${user.projects_count || 0}</td>
+                    <td>
+                        <div class="d-flex flex-column gap-1">
+                            <label class="toggle-switch">
+                                <input type="checkbox" class="access-toggle" data-user-id="${user.id}" 
+                                    ${currentStatus ? 'checked' : ''} ${isFrozen ? 'disabled' : ''}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <label class="toggle-switch" style="width: 60px; height: 34px;">
+                                <input type="checkbox" class="freeze-toggle" data-user-id="${user.id}" 
+                                    ${isFrozen ? 'checked' : ''}>
+                                <span class="toggle-slider" style="background-color: ${isFrozen ? '#f59e0b' : '#94a3b8'}"></span>
+                            </label>
+                            <span class="x-small text-muted">${isFrozen ? '❄️ Frozen' : (currentStatus ? 'Active' : 'Inactive')}</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        // Attach event listeners to access toggles
+        document.querySelectorAll('.access-toggle').forEach(toggle => {
+            toggle.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const userId = parseInt(toggle.dataset.userId);
+                const newStatus = toggle.checked;
+                const user = usersData.find(u => u.id === userId);
+                
+                // Don't allow enabling if frozen
+                if (user && user.is_frozen && newStatus) {
+                    toggle.checked = false;
+                    showToast('Cannot activate a frozen user. Unfreeze first.', 'warning');
+                    return;
+                }
+                
+                if (user) {
+                    pendingToggle = { userId, newStatus, userName: user.full_name || user.username, type: 'access' };
+                    document.getElementById('toggleAction').textContent = newStatus ? 'enable' : 'disable';
+                    document.getElementById('toggleUserName').textContent = pendingToggle.userName;
+                    const confirmModal = new bootstrap.Modal(document.getElementById('toggleConfirmModal'));
+                    confirmModal.show();
+                }
+            });
+        });
+        
+        // Attach event listeners to freeze toggles
+        document.querySelectorAll('.freeze-toggle').forEach(toggle => {
+            toggle.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const userId = parseInt(toggle.dataset.userId);
+                const newFrozenStatus = toggle.checked;
+                const user = usersData.find(u => u.id === userId);
+                
+                if (user) {
+                    pendingToggle = { userId, newFrozenStatus, userName: user.full_name || user.username, type: 'freeze' };
+                    document.getElementById('toggleAction').textContent = newFrozenStatus ? 'freeze' : 'unfreeze';
+                    document.getElementById('toggleUserName').textContent = pendingToggle.userName;
+                    const confirmModal = new bootstrap.Modal(document.getElementById('toggleConfirmModal'));
+                    confirmModal.show();
+                }
+            });
+        });
+    }
+
+// Update applyPendingToggle function
+    function applyPendingToggle() {
+        if (pendingToggle) {
+            const { userId, newStatus, newFrozenStatus, userName, type } = pendingToggle;
+            
+            if (type === 'access') {
+                pendingChanges[userId] = newStatus;
+            } else if (type === 'freeze') {
+                // Store freeze status separately
+                if (!pendingFreezeChanges) pendingFreezeChanges = {};
+                pendingFreezeChanges[userId] = newFrozenStatus;
+                
+                // If freezing, also deactivate the user
+                if (newFrozenStatus) {
+                    pendingChanges[userId] = false;
+                }
+            }
+            updateStats();
+            renderTable();
+            showToast(`${userName} ${type === 'access' ? (newStatus ? 'enabled' : 'disabled') : (newFrozenStatus ? 'frozen' : 'unfrozen')}`, 'success');
+            pendingToggle = null;
+        }
+    }
+        
+    // Save all changes to server
+    // Save all changes to server
+    async function saveAllChanges() {
+        const changeCount = Object.keys(pendingChanges).length;
+        if (changeCount === 0) {
+            showToast('No changes to save', 'info');
+            return;
+        }
+        
+        document.getElementById('changeCount').textContent = changeCount;
+        const confirmModal = new bootstrap.Modal(document.getElementById('saveConfirmModal'));
+        confirmModal.show();
+    }
+
+    async function executeSaveChanges() {
+        const changes = [];
+    
+        // Add access changes
+        for (const [id, status] of Object.entries(pendingChanges)) {
+            changes.push({
+                user_id: parseInt(id),
+                is_active: status
+            });
+        }
+        // Add freeze changes
+        if (pendingFreezeChanges) {
+            for (const [id, frozenStatus] of Object.entries(pendingFreezeChanges)) {
+                // Check if user already in changes
+                const existing = changes.find(c => c.user_id === parseInt(id));
+                if (existing) {
+                    existing.is_frozen = frozenStatus;
+                } else {
+                    changes.push({
+                        user_id: parseInt(id),
+                        is_frozen: frozenStatus
+                    });
+                }
+            }
+        }
+        
+        if (changes.length === 0) {
+            showToast('No changes to save', 'info');
+            return;
+        }
+        
+        document.getElementById('changeCount').textContent = changes.length;
+        const confirmModal = new bootstrap.Modal(document.getElementById('saveConfirmModal'));
+        confirmModal.show();
+    }
+        
+    // Show toast notification
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+        toast.style.zIndex = '9999';
+        toast.style.minWidth = '300px';
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    
+    // Filter function
+    function applyFilters() {
+        renderTable();
+    }
+    
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchUsers();
+        
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                applyFilters();
+            });
+        });
+        
+        // Search input
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value;
+                applyFilters();
+            });
+        }
+        
+        // Refresh button
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                pendingChanges = {};
+                fetchUsers();
+                showToast('Data refreshed', 'info');
+            });
+        }
+        
+        // Save all button
+        const saveAllBtn = document.getElementById('saveAllBtn');
+        if (saveAllBtn) {
+            saveAllBtn.addEventListener('click', saveAllChanges);
+        }
+        
+        // Confirm save button
+        const confirmSaveBtn = document.getElementById('confirmSaveBtn');
+        if (confirmSaveBtn) {
+            confirmSaveBtn.addEventListener('click', executeSaveChanges);
+        }
+        
+        // Confirm toggle button
+        const confirmToggleBtn = document.getElementById('confirmToggleBtn');
+        if (confirmToggleBtn) {
+            confirmToggleBtn.addEventListener('click', () => {
+                applyPendingToggle();
+                const modal = bootstrap.Modal.getInstance(document.getElementById('toggleConfirmModal'));
+                if (modal) modal.hide();
+            });
+        }
+    });
+</script>
+{% endblock %}

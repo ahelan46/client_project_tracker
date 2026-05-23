@@ -4,6 +4,8 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from datetime import date, datetime
 
+# In models.py, add this field to UserProfile class:
+
 class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('admin', 'Admin'),
@@ -16,6 +18,7 @@ class UserProfile(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='team_member')
     phone = models.CharField(max_length=20, blank=True, null=True)
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    is_frozen = models.BooleanField(default=False)  # Add this line
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
@@ -370,6 +373,10 @@ class Attendance(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='present')
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES, default='office')
     device = models.CharField(max_length=20, choices=DEVICE_CHOICES, default='desktop')
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    check_in_photo = models.TextField(blank=True, null=True)  # Store base64 photo data
+    photo_captured_at = models.DateTimeField(null=True, blank=True)
     
     # Daily status update (standup)
     today_work = models.TextField(blank=True, null=True)

@@ -12,7 +12,7 @@ urlpatterns = [
     path('create-project/', views.create_project, name='create_project'),
 
     path('teams/', views.teams, name='teams'),
-
+    path('attendance/photo/<int:attendance_id>/', views.get_attendance_photo, name='attendance_photo'),
     path('client-form/', views.client_form, name='client_form'),
     path('task-board/', views.task_board, name='task_board'),
     path('tasks/<int:pk>/json/', views.task_detail_json, name='task_detail_json'),
@@ -43,7 +43,11 @@ urlpatterns = [
     path('assignment/<int:assignment_id>/accept/', views.accept_project_assignment, name='accept_project_assignment'),
     path('assignment/<int:assignment_id>/reject/', views.reject_project_assignment, name='reject_project_assignment'),
     path('projects/<int:project_id>/assign-to/<int:team_leader_id>/', views.quick_assign_project, name='quick_assign_project'),
-    
+    # Add these to your urlpatterns
+    path('user-mgmt/list/', views.admin_users_list, name='admin_users_list'),
+    path('user-mgmt/update-status/', views.admin_update_user_status, name='admin_update_user_status'),
+    path('user-mgmt/freeze/', views.admin_users_freeze, name='admin_users_freeze'),
+    path('frozen/', views.user_frozen_page, name='user_frozen_page'),
     # Attendance URLs
     path('attendance/', views.attendance_dashboard, name='attendance_dashboard'),
     path('attendance/check-in/', views.attendance_check_in, name='attendance_check_in'),

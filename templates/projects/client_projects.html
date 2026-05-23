@@ -175,5 +175,16 @@
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
+   
+html[data-theme="light"] .badge,
+html[data-theme="light"] .text-muted.small {
+    color: #000000 !important;
+}
+
+/* Dark mode: white text */
+html[data-theme="dark"] .badge,
+html[data-theme="dark"] .text-muted.small {
+    color: #ffffff !important;
+}
 </style>
 {% endblock %}

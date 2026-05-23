@@ -628,7 +628,14 @@ html[data-theme="dark"] .timeline-dot {
                     </a>
                 </div>
                 {% endif %}
-
+                <!-- Add this in the sidebar navigation -->
+                {% if user.profile.role == 'admin' %}
+                <div class="nav-item-custom">
+                    <a href="{% url 'admin_users_freeze' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'admin_users_freeze' %}active{% endif %}" title="User Access Control">
+                        <i class="fas fa-user-lock"></i> <span class="nav-link-text">User Access</span>
+                    </a>
+                </div>
+                {% endif %}
                 <!-- 3. Projects -->
                 {% if user.profile.role != 'team_leader' %}
                 <div class="nav-item-custom">
