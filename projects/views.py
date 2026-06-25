@@ -592,34 +592,31 @@ def client_form(request):
     if request.method == 'POST':
         form = ClientProjectForm(request.POST, request.FILES)
         if form.is_valid():
-            # Create or get the client
+            client_name = request.user.get_full_name() or request.user.username
             client, created = Client.objects.get_or_create(
-                email=form.cleaned_data['email'],
+                email=request.user.email,
                 defaults={
-                    'name': form.cleaned_data['client_name'],
-                    'phone': form.cleaned_data['phone'],
-                    'address': form.cleaned_data['company_name'],   # <-- NEW
+                    'name': client_name,
                 }
             )
             
-            # Create the project
             project = Project(
                 title=form.cleaned_data['project_title'],
                 description='',
                 client=client,
                 manager=request.user,
-                deadline=form.cleaned_data['deadline']
+                deadline=form.cleaned_data['deadline'],
+                priority=form.cleaned_data['priority'],
+                budget_amount=form.cleaned_data['amount'],
             )
             project.save()
             
-            # Handle file upload if provided
-            if form.cleaned_data.get('file_upload'):
-                project_file = ProjectFile(
-                    project=project,
-                    name=form.cleaned_data['file_upload'].name,
-                    file=form.cleaned_data['file_upload']
-                )
-                project_file.save()
+            project_file = ProjectFile(
+                project=project,
+                name=form.cleaned_data['file_upload'].name,
+                file=form.cleaned_data['file_upload']
+            )
+            project_file.save()
             
             return redirect('dashboard')
     else:
@@ -1576,7 +1573,9 @@ def calendar_events_json(request):
         user_role = 'team_member'
         
     if user_role == 'project_manager':
-        projects = projects.filter(manager=request.user)
+        pm_projects = projects.filter(manager=request.user)
+        client_projects = projects.filter(client__isnull=False)
+        projects = (pm_projects | client_projects).distinct()
     elif user_role == 'team_leader':
         assignments = ProjectAssignment.objects.filter(
             team_leader=request.user,
@@ -1783,6 +1782,13 @@ def settings_view(request):
     client = None
     if user_role == 'client':
         client = Client.objects.filter(email=request.user.email).first()
+        if client is None:
+            client = Client.objects.create(
+                name=request.user.get_full_name() or request.user.username,
+                email=request.user.email,
+                phone=request.user.profile.phone or '',
+                address='',
+            )
         
     if request.method == 'POST':
         user = request.user
@@ -1796,6 +1802,9 @@ def settings_view(request):
         profile.save()
         
         if client and user_role == 'client':
+            client.name = user.get_full_name() or user.username
+            client.email = user.email
+            client.phone = profile.phone
             client.address = request.POST.get('address', client.address)
             client.save()
             

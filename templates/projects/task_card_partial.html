@@ -1,3 +1,4 @@
+<!-- Task card partial used by task_board.html to render each task in the board columns. -->
 <div class="card task-card border-0 shadow-sm p-3 {% if task.status != 'done' and task.deadline < today %}overdue-pulse{% endif %}" 
      id="task-{{ task.id }}" 
      draggable="true" 
