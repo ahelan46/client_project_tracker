@@ -754,6 +754,57 @@ def calendar_view(request):
         tasks = Task.objects.all()
     return render(request, 'projects/calendar.html', {'projects': projects, 'tasks': tasks})
 
+def can_users_communicate(user1, user2):
+    """
+    Checks if user1 and user2 are allowed to communicate based on the role matrix:
+    - Client: can talk with Admin, Project Manager, Team Leader.
+    - Admin: can talk with Client, Project Manager, Team Leader, Team Member.
+    - Project Manager: can talk with Client, Admin, Team Leader, Team Member.
+    - Team Leader: can talk with Client, Admin, Project Manager, Team Member.
+    - Team Member: can talk with Team Leader, Project Manager, Admin (only reply if Admin initiated).
+    """
+    if user1.id == user2.id:
+        return False
+
+    try:
+        role1 = user1.profile.role
+    except UserProfile.DoesNotExist:
+        role1 = 'team_member'
+
+    try:
+        role2 = user2.profile.role
+    except UserProfile.DoesNotExist:
+        role2 = 'team_member'
+
+    # 1. Client communication rules
+    if role1 == 'client':
+        return role2 in ['admin', 'project_manager', 'team_leader']
+    if role2 == 'client':
+        return role1 in ['admin', 'project_manager', 'team_leader']
+
+    # 2. Team Member communication rules
+    if role1 == 'team_member':
+        if role2 in ['project_manager', 'team_leader']:
+            return True
+        if role2 == 'admin':
+            # team member can only talk to admin if admin asks/messages them first
+            return Message.objects.filter(sender=user2, receiver=user1).exists()
+        return False
+
+    if role2 == 'team_member':
+        if role1 in ['project_manager', 'team_leader']:
+            return True
+        if role1 == 'admin':
+            return True
+        return False
+
+    # 3. Admin, PM, TL communication rules between each other
+    allowed_roles = ['admin', 'project_manager', 'team_leader']
+    if role1 in allowed_roles and role2 in allowed_roles:
+        return True
+
+    return False
+
 @login_required
 def messages_view(request):
     from django.db.models import Max
@@ -773,6 +824,9 @@ def messages_view(request):
     clients = []
     
     for u in all_users:
+        if not can_users_communicate(request.user, u):
+            continue
+            
         role = u.profile.role if hasattr(u, 'profile') else 'team_member'
         unread_count = Message.objects.filter(sender=u, receiver=request.user, is_read=False).count()
         latest_msg = Message.objects.filter(
@@ -808,11 +862,23 @@ def messages_view(request):
         'clients': clients
     })
 
+
 @login_required
 def chat_history_json(request, target_type, target_id):
     if target_type == 'project':
+        project = get_object_or_404(Project, id=target_id)
+        # Check permissions for project
+        user_role = request.user.profile.role
+        if user_role == 'client' and project.client.email != request.user.email:
+            return JsonResponse({'status': 'error', 'message': 'Access denied'}, status=403)
+        elif user_role == 'project_manager' and project.manager != request.user:
+            return JsonResponse({'status': 'error', 'message': 'Access denied'}, status=403)
         messages = Message.objects.filter(project_id=target_id).order_by('created_at')
     elif target_type == 'user':
+        target_user = get_object_or_404(User, id=target_id)
+        if not can_users_communicate(request.user, target_user):
+            return JsonResponse({'status': 'error', 'message': 'Communication not allowed'}, status=403)
+            
         Message.objects.filter(sender_id=target_id, receiver=request.user, is_read=False).update(is_read=True)
         messages = Message.objects.filter(
             Q(sender=request.user, receiver_id=target_id) |
@@ -865,11 +931,19 @@ def send_chat_message(request):
         project = None
         if project_id:
             project = get_object_or_404(Project, id=project_id)
+            # Permission check for project
+            user_role = request.user.profile.role
+            if user_role == 'client' and project.client.email != request.user.email:
+                return JsonResponse({'status': 'error', 'message': 'Access denied'}, status=403)
+            elif user_role == 'project_manager' and project.manager != request.user:
+                return JsonResponse({'status': 'error', 'message': 'Access denied'}, status=403)
             
         receiver = None
         if receiver_id:
             receiver = get_object_or_404(User, id=receiver_id)
-            
+            if not can_users_communicate(request.user, receiver):
+                return JsonResponse({'status': 'error', 'message': 'Communication not allowed'}, status=403)
+                
         message = Message.objects.create(
             sender=request.user,
             receiver=receiver,
@@ -908,40 +982,7 @@ def send_chat_message(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
-@login_required
-def messages_view(request):
-    user_role = request.user.profile.role
-    if user_role == 'project_manager':
-        managed_projects = Project.objects.filter(manager=request.user)
-        messages = Message.objects.filter(Q(project__in=managed_projects) | Q(sender=request.user) | Q(receiver=request.user)).order_by('-created_at')
-        projects = Project.objects.filter(manager=request.user)
-    elif user_role == 'team_leader':
-        # Team leaders can only have conversations with project managers and clients
-        project_managers = User.objects.filter(profile__role='project_manager')
-        clients = User.objects.filter(profile__role='client')
-        allowed_users = project_managers | clients
-        messages = Message.objects.filter(
-            Q(sender=request.user, receiver__in=allowed_users) |
-            Q(receiver=request.user, sender__in=allowed_users)
-        ).order_by('-created_at')
-        projects = Project.objects.none()
-    else:
-        messages = Message.objects.filter(Q(sender=request.user) | Q(receiver=request.user)).order_by('-created_at')
-        projects = Project.objects.all()
 
-    if request.method == 'POST':
-        content = request.POST.get('content')
-        project_id = request.POST.get('project')
-        receiver_id = request.POST.get('receiver')
-        if content:
-            receiver = None
-            if receiver_id:
-                receiver = User.objects.get(pk=receiver_id)
-            project = Project.objects.get(pk=project_id) if project_id else None
-            Message.objects.create(sender=request.user, receiver=receiver, content=content, project=project)
-            return redirect('messages')
-    
-    return render(request, 'projects/messages.html', {'messages': messages, 'projects': projects})
 
 @login_required
 def teams(request):
