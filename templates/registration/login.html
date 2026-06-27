@@ -1,0 +1,69 @@
+<!-- Login page; extends base.html and is used by protected-user sign-in flows. -->
+{% extends 'base.html' %}
+
+{% block title %}Login | Tracker{% endblock %}
+
+{% block auth_content %}
+<div class="d-flex align-items-center justify-content-center bg-light" style="min-height: 100vh;">
+    <div class="card border-0 shadow-sm p-4" style="width: 100%; max-width: 400px; border-radius: 16px;">
+        <div class="text-center mb-4">
+            <div class="h2 fw-bold text-primary mb-1"><i class="fas fa-layer-group"></i> Tracker</div>
+            <p class="text-muted small">Sign in to manage your projects</p>
+        </div>
+        
+        <form method="POST">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+                <label class="form-label">{{ field.label }}</label>
+                {{ field.errors }}
+                {% if field.field.widget.input_type == "password" %}
+                <div class="position-relative">
+                    <input 
+                        type="password" 
+                        name="{{ field.name }}" 
+                        class="form-control pe-5" 
+                        placeholder="{{ field.label }}" 
+                        id="id_{{ field.name }}" 
+                    >
+                    <span class="position-absolute top-50 end-0 translate-middle-y px-3" style="cursor:pointer; z-index:10;"
+                          onclick="togglePassword('{{ field.name }}')">
+                        <i id="icon_{{ field.name }}" class="bi bi-eye fs-5 text-secondary"></i>
+                    </span>
+                </div>
+                {% else %}
+                <input type="{{ field.field.widget.input_type }}" name="{{ field.name }}" class="form-control" placeholder="{{ field.label }}">
+                {% endif %}
+            </div>
+            {% endfor %}
+            
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold mt-2">Sign In</button>
+        </form>
+        
+        <div class="text-center mt-4">
+            <p class="text-muted small mb-0">Don't have an account? <a href="{% url 'signup' %}" class="text-primary text-decoration-none fw-bold">Create one</a></p>
+        </div>
+    </div>
+</div>
+<style>
+    .btn.btn-primary {
+        opacity: 1;
+        background-color: rgb(32, 32, 154);
+    }
+</style>
+<script>
+    function togglePassword(fieldName) {
+        const input = document.getElementById('id_' + fieldName);
+        const icon = document.getElementById('icon_' + fieldName);
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = "password";
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+</script>
+{% endblock %}

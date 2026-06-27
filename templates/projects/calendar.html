@@ -1,0 +1,535 @@
+{% extends 'base.html' %}
+{% block title %}Interactive Calendar | Workspace{% endblock %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+<style>
+    /* Sleek Professional Dashboard Styling */
+    .dashboard-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        color: white;
+        padding: 2.5rem 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .dashboard-header::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 300px;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+        transform: skewX(-20deg) translateX(100%);
+        animation: shimmer 5s infinite;
+    }
+
+    @keyframes shimmer {
+        0% { transform: skewX(-20deg) translateX(-200%); }
+        100% { transform: skewX(-20deg) translateX(300%); }
+    }
+
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .glass-panel:hover {
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Calendar Container Improvements */
+    #calendar {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        color: #334155;
+        background: white;
+        border-radius: 20px;
+        padding: 1rem;
+    }
+
+    .fc-theme-standard td, .fc-theme-standard th { border-color: #f1f5f9; }
+    .fc-header-toolbar { padding: 1rem 0.5rem; margin-bottom: 1rem !important; }
+    .fc-toolbar-title { font-size: 1.5rem !important; font-weight: 800 !important; color: #0f172a; letter-spacing: -0.025em; }
+    
+    .fc-button {
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #475569 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        text-transform: capitalize !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+        transition: all 0.2s !important;
+    }
+    .fc-button:hover { background: #f1f5f9 !important; color: #0f172a !important; transform: translateY(-1px); }
+    .fc-button-active { background: #3b82f6 !important; color: white !important; border-color: #2563eb !important; }
+    .fc-today-button { background: #10b981 !important; color: white !important; border-color: #059669 !important; }
+
+    .fc-col-header-cell {
+        background: #f8fafc;
+        padding: 12px 0 !important;
+    }
+    .fc-col-header-cell-cushion { font-weight: 700 !important; color: #64748b !important; text-transform: uppercase; font-size: 0.75rem !important; letter-spacing: 0.05em; }
+    .fc-daygrid-day-number { font-weight: 600; color: #475569; padding: 8px !important; }
+    .fc-day-today { background-color: rgba(59, 130, 246, 0.03) !important; }
+
+    .fc-event {
+        border-radius: 6px !important;
+        border: none !important;
+        padding: 4px 8px !important;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        margin: 2px 4px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .fc-event:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); filter: brightness(1.05); }
+
+    /* Legend & Sidebar Styling */
+    .sidebar-title {
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-weight: 800;
+        color: #94a3b8;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .legend-item {
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        background: #f8fafc;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        border: 1px solid #f1f5f9;
+        transition: all 0.2s;
+    }
+    .legend-item:hover {
+        background: white;
+        border-color: #e2e8f0;
+        transform: translateX(4px);
+    }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+    .deadline-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid #f1f5f9;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s;
+    }
+    .deadline-card:hover {
+        border-color: #e2e8f0;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        transform: translateY(-2px);
+    }
+    .deadline-date {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.4rem 0.8rem;
+        border-radius: 9999px;
+        letter-spacing: 0.05em;
+    }
+
+    /* Modal Styling */
+    .modal-glass {
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.5);
+        border-radius: 24px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    .modal-header-modern { background: #f8fafc; border-bottom: 1px solid #f1f5f9; border-top-left-radius: 24px; border-top-right-radius: 24px; padding: 1.5rem 2rem; }
+    .modal-body-modern { padding: 2rem; }
+    .form-modern { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.75rem 1rem; font-weight: 500; }
+    .form-modern:focus { background: white; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+</style>
+
+<div class="container-fluid py-4 px-xl-5">
+    <!-- Premium Header -->
+    <div class="dashboard-header d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+        <div>
+            <h2 class="fw-bold mb-2 text-white display-6" style="letter-spacing: -0.025em;">Workspace Scheduler</h2>
+            <p class="mb-0 text-white-50 fs-6 fw-medium">Real-time synchronization for projects, tasks, and team meetings.</p>
+        </div>
+        <div class="mt-4 mt-md-0 d-flex gap-3 position-relative z-1">
+            <button class="btn btn-light text-dark fw-bold rounded-pill px-4 py-2 shadow-sm d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#createMeetingModal">
+                <i class="fas fa-plus-circle text-primary"></i> New Meeting
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row g-4">
+        <!-- Calendar -->
+        <div class="col-lg-9">
+            <div class="glass-panel p-2 p-md-4">
+                <div id="calendar" style="min-height: 700px;"></div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-3">
+            <!-- Legend Panel -->
+            <div class="glass-panel p-4 mb-4">
+                <div class="sidebar-title"><i class="fas fa-layer-group"></i> Categories</div>
+                <div class="legend-list">
+                    <div class="legend-item"><div class="legend-dot" style="background: linear-gradient(135deg, #4f46e5, #3b82f6);"></div><span class="fw-bold text-dark small">Project Deadlines</span></div>
+                    <div class="legend-item"><div class="legend-dot" style="background: linear-gradient(135deg, #db2777, #ec4899);"></div><span class="fw-bold text-dark small">Team Meetings</span></div>
+                    <div class="legend-item"><div class="legend-dot" style="background: linear-gradient(135deg, #2563eb, #60a5fa);"></div><span class="fw-bold text-dark small">Tasks: In Progress</span></div>
+                    <div class="legend-item"><div class="legend-dot" style="background: linear-gradient(135deg, #16a34a, #34d399);"></div><span class="fw-bold text-dark small">Tasks: Completed</span></div>
+                    <div class="legend-item"><div class="legend-dot" style="background: linear-gradient(135deg, #ea580c, #fb923c);"></div><span class="fw-bold text-dark small">Tasks: In Review</span></div>
+                </div>
+            </div>
+
+            <!-- Upcoming feed -->
+            <div class="glass-panel p-4" style="max-height: 500px; overflow-y: auto;">
+                <div class="sidebar-title"><i class="fas fa-bolt text-warning"></i> Upcoming Deadlines</div>
+                <div class="d-flex flex-column">
+                    {% for project in projects|slice:":3" %}
+                    <div class="deadline-card">
+                        <div>
+                            <div class="fw-bold text-dark small text-truncate" style="max-width: 140px;">{{ project.title }}</div>
+                            <div class="text-muted" style="font-size: 0.65rem; text-transform: uppercase; font-weight: 700;">Project</div>
+                        </div>
+                        <span class="deadline-date bg-danger bg-opacity-10 text-danger">{{ project.deadline|date:"M d" }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-3 text-muted small fw-medium">No project deadlines.</div>
+                    {% endfor %}
+
+                    {% for task in tasks|slice:":5" %}
+                    {% if task.status != 'done' %}
+                    <div class="deadline-card">
+                        <div>
+                            <div class="fw-bold text-dark small text-truncate" style="max-width: 140px;">{{ task.title }}</div>
+                            <div class="text-muted" style="font-size: 0.65rem; text-transform: uppercase; font-weight: 700;">Task</div>
+                        </div>
+                        <span class="deadline-date bg-primary bg-opacity-10 text-primary">{{ task.deadline|date:"M d" }}</span>
+                    </div>
+                    {% endif %}
+                    {% empty %}
+                    <div class="text-center py-3 text-muted small fw-medium">No task deadlines.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Meeting Modal -->
+<div class="modal fade" id="createMeetingModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-glass">
+            <div class="modal-header modal-header-modern border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold text-dark"><i class="fas fa-handshake text-primary me-2"></i>Schedule Meeting</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body modal-body-modern pt-0">
+                <form id="meetingForm" onsubmit="submitMeetingForm(event)">
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase" style="letter-spacing: 0.05em;">Meeting Title</label>
+                        <input type="text" id="meetTitle" class="form-control form-modern" placeholder="e.g. Project Alignment Call" required>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase" style="letter-spacing: 0.05em;">Link to Project</label>
+                        <select id="meetProject" class="form-select form-modern">
+                            <option value="">No linked project</option>
+                            {% for proj in projects %}
+                            <option value="{{ proj.id }}">{{ proj.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase" style="letter-spacing: 0.05em;">Start Date</label>
+                            <input type="datetime-local" id="meetStart" class="form-control form-modern" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase" style="letter-spacing: 0.05em;">End Date</label>
+                            <input type="datetime-local" id="meetEnd" class="form-control form-modern" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase" style="letter-spacing: 0.05em;">Description</label>
+                        <textarea id="meetDescription" class="form-control form-modern" rows="3" placeholder="Brief outline..."></textarea>
+                    </div>
+
+                    <div class="text-end mt-2">
+                        <button type="button" class="btn btn-light fw-bold rounded-pill px-4 me-2" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary fw-bold rounded-pill px-4 shadow-sm">Schedule Now</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Event Details Modal -->
+<div class="modal fade" id="eventDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-glass">
+            <div class="modal-header modal-header-modern">
+                <div class="d-flex align-items-center gap-3">
+                    <span id="modalEventColor" class="legend-dot" style="width: 16px; height: 16px;"></span>
+                    <h5 class="modal-title fw-bold text-dark mb-0" id="modalEventTitle">Event Title</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body modal-body-modern">
+                <div class="d-flex flex-column gap-4">
+                    <div class="d-flex align-items-center justify-content-between bg-light p-3 rounded-3 border">
+                        <span class="fw-bold text-muted small text-uppercase">Category</span>
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary text-capitalize px-3 py-1 rounded-pill" id="modalEventType" style="font-size: 0.8rem;">Type</span>
+                    </div>
+
+                    <div class="bg-light p-4 rounded-3 border">
+                        <div class="text-muted small text-uppercase fw-bold mb-2">Schedule Time</div>
+                        <div class="fw-bold text-dark" id="modalEventTime" style="font-size: 1.1rem;">timings...</div>
+                    </div>
+
+                    <div id="modalSpecificDetails" class="bg-light p-4 rounded-3 border">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+    <div id="calendarToast" class="toast align-items-center text-white bg-success border-0 rounded-4 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body fw-bold d-flex align-items-center gap-2 px-4 py-3">
+                <i class="fas fa-check-circle fs-5"></i>
+                <span id="calendarToastMessage">Updated successfully!</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let calendar = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            editable: true,
+            height: 'auto',
+            headerToolbar: {
+                left: 'title',
+                center: 'multiMonthYear,dayGridMonth,timeGridWeek,listMonth',
+                right: 'prev,next today'
+            },
+            buttonText: {
+                multiMonthYear: 'Year',
+                dayGridMonth: 'Month',
+                timeGridWeek: 'Week',
+                listMonth: 'List',
+                today: 'Today'
+            },
+            events: '/calendar/events/json/',
+            
+            datesSet: function(dateInfo) {
+                let currentDate = calendar.getDate();
+                let currentMonth = currentDate.getMonth();
+                let currentYear = currentDate.getFullYear();
+                
+                let monthOptions = '';
+                const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                for(let i=0; i<12; i++) {
+                    monthOptions += `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${months[i]}</option>`;
+                }
+                
+                let yearOptions = '';
+                for(let i=currentYear-10; i<=currentYear+10; i++) {
+                    yearOptions += `<option value="${i}" ${i === currentYear ? 'selected' : ''}>${i}</option>`;
+                }
+                
+                let titleEl = document.querySelector('.fc-toolbar-title');
+                if (titleEl) {
+                    titleEl.innerHTML = `
+                        <div class="d-flex align-items-center">
+                            <select id="calendarMonth" class="form-select form-select-lg d-inline-block w-auto border-0 fw-bold bg-transparent shadow-none" style="font-size: 1.5rem; color: #0f172a; cursor: pointer; padding-right: 2rem;">
+                                ${monthOptions}
+                            </select>
+                            <select id="calendarYear" class="form-select form-select-lg d-inline-block w-auto border-0 fw-bold bg-transparent shadow-none" style="font-size: 1.5rem; color: #0f172a; cursor: pointer; padding-right: 2rem;">
+                                ${yearOptions}
+                            </select>
+                        </div>
+                    `;
+                    
+                    document.getElementById('calendarMonth').addEventListener('change', function(e) {
+                        let newMonth = parseInt(e.target.value);
+                        let year = parseInt(document.getElementById('calendarYear').value);
+                        calendar.gotoDate(new Date(year, newMonth, 1));
+                    });
+                    
+                    document.getElementById('calendarYear').addEventListener('change', function(e) {
+                        let newYear = parseInt(e.target.value);
+                        let month = parseInt(document.getElementById('calendarMonth').value);
+                        calendar.gotoDate(new Date(newYear, month, 1));
+                    });
+                }
+            },
+            
+            eventDrop: rescheduleEvent,
+            eventResize: rescheduleEvent,
+            eventClick: function(info) {
+                openEventDetails(info.event);
+            }
+        });
+
+        calendar.render();
+    });
+
+    function showToast(message) {
+        const toastEl = document.getElementById('calendarToast');
+        document.getElementById('calendarToastMessage').textContent = message;
+        const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+        toast.show();
+    }
+
+    function rescheduleEvent(info) {
+        const eventId = info.event.id;
+        if (!eventId) return;
+        const parts = eventId.split('_');
+        if(parts.length !== 2) return;
+        const [type, pk] = parts;
+        
+        let startStr = info.event.startStr;
+        let endStr = info.event.endStr || '';
+
+        if (type === 'meeting' && !endStr) {
+            const end = new Date(info.event.start);
+            end.setHours(end.getHours() + 1);
+            endStr = end.toISOString();
+        }
+
+        fetch(`/calendar/events/${type}/${pk}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ start: startStr, end: endStr })
+        })
+        .then(res => res.json())
+        .then(data => {
+            showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} rescheduled!`);
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Could not update schedule on server.");
+            info.revert();
+        });
+    }
+
+    function openEventDetails(event) {
+        const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+        document.getElementById('modalEventColor').style.background = event.backgroundColor;
+        
+        // Handle title safely
+        let titleParts = event.title.split(': ');
+        document.getElementById('modalEventTitle').textContent = titleParts.length > 1 ? titleParts.slice(1).join(': ') : event.title;
+        
+        const type = event.extendedProps.type || 'Event';
+        document.getElementById('modalEventType').textContent = type;
+
+        let timingStr = '';
+        if (event.allDay) {
+            const d = new Date(event.start);
+            timingStr = `<i class="far fa-calendar text-primary me-2"></i> All Day - ${d.toLocaleDateString()}`;
+        } else {
+            const s = new Date(event.start);
+            const e = event.end ? new Date(event.end) : new Date(s.getTime() + 3600000);
+            timingStr = `<i class="far fa-clock text-primary me-2"></i> ${s.toLocaleDateString()} at ${s.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${e.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        }
+        document.getElementById('modalEventTime').innerHTML = timingStr;
+
+        const specDetails = document.getElementById('modalSpecificDetails');
+        if (type === 'project') {
+            specDetails.innerHTML = `
+                <div class="mb-2"><strong class="text-dark small text-uppercase me-2">Client:</strong> <span class="text-muted fw-medium">${event.extendedProps.client || 'N/A'}</span></div>
+                <div class="mb-2"><strong class="text-dark small text-uppercase me-2">Manager:</strong> <span class="text-muted fw-medium">${event.extendedProps.manager || 'N/A'}</span></div>
+                <div><strong class="text-dark small text-uppercase me-2">Status:</strong> <span class="badge bg-info bg-opacity-10 text-info px-2 py-1">${event.extendedProps.status || 'N/A'}</span></div>
+            `;
+        } else if (type === 'task') {
+            specDetails.innerHTML = `
+                <div class="mb-2"><strong class="text-dark small text-uppercase me-2">Project:</strong> <span class="text-muted fw-medium">${event.extendedProps.project || 'N/A'}</span></div>
+                <div class="mb-2"><strong class="text-dark small text-uppercase me-2">Assignee:</strong> <span class="text-muted fw-medium">${event.extendedProps.assignee || 'Unassigned'}</span></div>
+                <div class="mb-2"><strong class="text-dark small text-uppercase me-2">Status:</strong> <span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1">${event.extendedProps.status || 'N/A'}</span></div>
+                <div><strong class="text-dark small text-uppercase me-2">Priority:</strong> <span class="badge bg-warning bg-opacity-10 text-warning px-2 py-1 text-uppercase">${event.extendedProps.priority || 'N/A'}</span></div>
+            `;
+        } else if (type === 'meeting') {
+            specDetails.innerHTML = `
+                <div class="mb-2"><strong class="text-dark small text-uppercase me-2">Project:</strong> <span class="text-muted fw-medium">${event.extendedProps.project || 'N/A'}</span></div>
+                <div class="mb-2"><strong class="text-dark small text-uppercase me-2">Organizer:</strong> <span class="text-muted fw-medium">${event.extendedProps.organizer || 'N/A'}</span></div>
+                <div><strong class="text-dark small text-uppercase d-block mb-1 mt-3">Agenda / Notes:</strong> <div class="bg-white p-3 rounded border text-muted small">${event.extendedProps.description || 'No agenda provided.'}</div></div>
+            `;
+        } else {
+            specDetails.innerHTML = `<div class="text-muted small">No additional details available.</div>`;
+        }
+
+        modal.show();
+    }
+
+    window.submitMeetingForm = function(event) {
+        event.preventDefault();
+        
+        fetch('/calendar/events/create-meeting/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                title: document.getElementById('meetTitle').value,
+                project_id: document.getElementById('meetProject').value,
+                start: document.getElementById('meetStart').value,
+                end: document.getElementById('meetEnd').value,
+                description: document.getElementById('meetDescription').value
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            bootstrap.Modal.getInstance(document.getElementById('createMeetingModal')).hide();
+            document.getElementById('meetingForm').reset();
+            calendar.refetchEvents();
+            showToast("Meeting scheduled successfully!");
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Could not schedule meeting.");
+        });
+    }
+</script>
+{% endblock %}

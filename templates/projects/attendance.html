@@ -1,0 +1,1790 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Attendance Management | Tracker{% endblock %}
+
+{% block content %}
+<!-- FullCalendar and Chart.js CDN -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="attendance-wrapper">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1 text-main text-gradient">Team Member Attendance Management</h2>
+            <p class="text-muted small mb-0"><i class="far fa-calendar-alt me-2"></i>{{ current_date_str }} | Real-Time Productivity & Log Tracker</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-glass px-3 py-2 btn-sm" id="btnSync" title="Sync dashboard data">
+                <i class="fas fa-sync-alt"></i> Sync
+            </button>
+            <a href="{% url 'download_attendance_report' %}" class="btn btn-primary px-3 py-2 btn-sm shadow-sm" id="btnExport">
+                <i class="fas fa-file-export me-2"></i> Export Monthly Report
+            </a>
+        </div>
+    </div>
+
+    <!-- Django Messages -->
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show border-0 shadow-sm glass-alert" role="alert">
+            <i class="{% if message.tags == 'error' %}fas fa-exclamation-triangle{% else %}fas fa-check-circle{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Role Selection Tabs (Only for PM, TL, Admin) -->
+    {% if user_role != 'team_member' %}
+    <div class="glass-tabs mb-4">
+        {% if user_role != 'admin' %}
+        <button class="tab-btn active" onclick="switchMainTab('my-attendance')">
+            <i class="fas fa-user me-2"></i> My Attendance
+        </button>
+        {% endif %}
+        <button class="tab-btn {% if user_role == 'admin' %}active{% endif %}" onclick="switchMainTab('team-attendance')">
+            <i class="fas fa-users me-2"></i> {% if user_role == 'team_leader' %}Team Attendance{% elif user_role == 'project_manager' %}Department Overview{% else %}Company-Wide Logs{% endif %}
+        </button>
+        <button class="tab-btn position-relative" onclick="switchMainTab('leave-approvals')">
+            <i class="fas fa-clipboard-check me-2"></i> Leave Approvals
+            {% if pending_leaves %}
+            <span class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.65rem;">
+                {{ pending_leaves|length }}
+            </span>
+            {% endif %}
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Tab Contents Wrapper -->
+    {% if user_role != 'admin' %}
+    <div id="my-attendance-content" class="main-tab-content active-content">
+
+        
+        <!-- SECTION 1: TOP PANEL (KPI & Smart Check-In Card) -->
+        <div class="row g-4 mb-4">
+            <!-- 1.1 KPI Dashboard Cards (Left) -->
+            <div class="col-xl-8 col-lg-7">
+                <div class="row g-3">
+                    <!-- Circular KPI -->
+                    <div class="col-md-6 col-sm-12">
+                        <div class="glass-card kpi-card height-equal d-flex align-items-center justify-content-between p-4">
+                            <div class="kpi-text">
+                                <span class="text-muted small d-block">Monthly Attendance %</span>
+                                <h2 class="fw-bold mt-1 text-main mb-0">{{ attendance_pct }}%</h2>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle mt-2 d-inline-block">🟢 {{ present_days }} Days Active</span>
+                            </div>
+                            <div class="kpi-circle-progress">
+                                <svg width="100" height="100" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--border-color)" stroke-width="8"></circle>
+                                    <circle id="kpiProgressCircle" cx="50" cy="50" r="40" fill="transparent" stroke="var(--primary-color)" stroke-width="8"
+                                            stroke-dasharray="251.2" stroke-dashoffset="251.2"
+                                            stroke-linecap="round" transform="rotate(-90 50 50)"></circle>
+                                </svg>
+                                <span class="circle-val fw-bold">{{ attendance_pct }}%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mini KPI cards -->
+                    <div class="col-md-6">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="glass-card kpi-card-mini p-3">
+                                    <span class="text-muted x-small d-block text-uppercase fw-semibold">Present Days</span>
+                                    <h4 class="fw-bold text-main mt-1 mb-0">🟢 {{ present_days }} Days</h4>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="glass-card kpi-card-mini p-3">
+                                    <span class="text-muted x-small d-block text-uppercase fw-semibold">Absent Days</span>
+                                    <h4 class="fw-bold text-danger mt-1 mb-0">🔴 {{ absent_days }} Days</h4>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="glass-card kpi-card-mini p-3">
+                                    <span class="text-muted x-small d-block text-uppercase fw-semibold">Late Logins</span>
+                                    <h4 class="fw-bold text-warning mt-1 mb-0">🟡 {{ late_logins }} Times</h4>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="glass-card kpi-card-mini p-3">
+                                    <span class="text-muted x-small d-block text-uppercase fw-semibold">Overtime Hours</span>
+                                    <h4 class="fw-bold text-success mt-1 mb-0">🔥 {{ overtime_hours }} Hours</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="row g-3">
+                            <div class="col-md-6 col-6">
+                                <div class="glass-card d-flex align-items-center justify-content-between p-3">
+                                    <div>
+                                        <span class="text-muted small d-block">Total Work Hours</span>
+                                        <h4 class="fw-bold text-main mt-1 mb-0">⏱ {{ total_work_hours }} Hours</h4>
+                                    </div>
+                                    <div class="bg-primary-subtle text-primary p-3 rounded-circle" style="font-size: 1.2rem;">
+                                        <i class="fas fa-hourglass-half"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-6">
+                                <div class="glass-card d-flex align-items-center justify-content-between p-3">
+                                    <div>
+                                        <span class="text-muted small d-block">Active Streak</span>
+                                        <h4 class="fw-bold text-main mt-1 mb-0">⚡ {{ streak }} Days</h4>
+                                    </div>
+                                    <div class="bg-warning-subtle text-warning p-3 rounded-circle" style="font-size: 1.2rem;">
+                                        <i class="fas fa-fire"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1.2 Smart Check-In/Check-Out Card (Right) -->
+            <div class="col-xl-4 col-lg-5">
+                <div class="glass-card smart-card text-center p-4 h-100 d-flex flex-column justify-content-between">
+                    <div class="smart-card-header">
+                        <span class="badge bg-glass text-main px-3 py-2 border border-glass small">
+                            <i class="fas fa-wifi me-2"></i><span id="remoteBadgeText">Office Workspace</span>
+                        </span>
+                        <h1 class="display-5 fw-bold text-main my-3 font-monospace tracking-wide" id="smartTimer">00:00:00</h1>
+                        <span class="text-muted small d-block" id="currentFullDate">{{ current_date_str }}</span>
+                    </div>
+
+                    <!-- Status Display -->
+                    <div class="my-4 py-3 bg-glass-dark rounded-3 px-3">
+                        <div class="d-flex justify-content-center align-items-center gap-2" id="statusMessage">
+                            {% if today_attendance %}
+                                {% if today_attendance.check_out %}
+                                    <span class="badge bg-danger rounded-circle p-1"><i class="fas fa-circle text-white"></i></span>
+                                    <span class="fw-bold text-main">Checked Out at {{ today_attendance.check_out|date:"g:i A" }}</span>
+                                {% elif active_break %}
+                                    <span class="pulse-dot-warning"></span>
+                                    <span class="fw-bold text-warning">On Break ({{ active_break.get_break_type_display }})</span>
+                                {% else %}
+                                    <span class="pulse-dot-success"></span>
+                                    <span class="fw-bold text-success">Checked In at {{ today_attendance.check_in|date:"g:i A" }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary rounded-circle p-1"><i class="fas fa-circle text-white"></i></span>
+                                <span class="fw-bold text-muted">Not Checked In Today</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted mt-2 font-monospace" id="workingDuration">
+                            Work Timer: <span id="hoursWorkedVal">0.0h</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Controls -->
+                    <div class="action-buttons-group d-flex flex-column gap-2">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button class="btn btn-success btn-lg w-100 shadow-sm border-0 py-3" id="btnCheckIn">
+                                    <i class="fas fa-sign-in-alt me-2"></i> Check In
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-danger btn-lg w-100 shadow-sm border-0 py-3" id="btnCheckOut">
+                                    <i class="fas fa-sign-out-alt me-2"></i> Check Out
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Break Controls -->
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button class="btn btn-warning w-100 py-2 border-0 shadow-sm" id="btnStartBreak">
+                                    <i class="fas fa-mug-hot me-2"></i> Start Break
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-primary w-100 py-2 border-0 shadow-sm" id="btnEndBreak">
+                                    <i class="fas fa-play me-2"></i> End Break
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Quick Action Toggles -->
+                        <div class="d-flex justify-content-between align-items-center mt-3 px-1">
+                            <div class="form-check form-switch text-start">
+                                <input class="form-check-input" type="checkbox" id="wfhSwitch">
+                                <label class="form-check-label text-muted small" for="wfhSwitch">Remote Work Mode</label>
+                            </div>
+                            <a href="javascript:void(0);" class="text-primary text-decoration-none small" id="lnkFaceCheckIn">
+                                <i class="fas fa-camera me-1"></i> Face Check-In
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FACE CHECK-IN MODAL -->
+        <div class="modal fade" id="faceCheckInModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">
+                            <i class="fas fa-camera me-2 text-primary"></i>Face Recognition Check-In
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center p-4">
+                        <div class="camera-container mb-3" style="position: relative; width: 300px; height: 300px; margin: 0 auto; background: #000; border-radius: 12px; overflow: hidden;">
+                            <video id="faceCheckVideo" autoplay playsinline width="300" height="300" style="object-fit: cover; transform: scaleX(-1);"></video>
+                            <canvas id="faceCheckCanvas" width="300" height="300" style="position: absolute; top: 0; left: 0;"></canvas>
+                            <div class="face-scan-overlay"></div>
+                            <div class="face-scan-line"></div>
+                        </div>
+                        <div id="scanStatusText" class="fw-bold text-main mt-2">Ready for face scan</div>
+                        <div id="scanSubText" class="x-small text-muted">Position your face in the center circle</div>
+                    </div>
+                    <div class="modal-footer d-flex gap-2 justify-content-center pb-4">
+                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary px-4" id="captureFaceScanBtn">Capture & Check In</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Face + Geo Check‑in -->
+        <!-- <div class="modal fade glass-modal" id="faceGeoModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-glass shadow-lg">
+                    <div class="modal-header border-bottom-0 pb-0">
+                        <h5 class="modal-title fw-bold text-main"><i class="fas fa-camera me-2 text-primary"></i>Face & Location Check‑in</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center p-4">
+                        <video id="faceGeoVideo" autoplay playsinline width="320" height="320" style="object-fit: cover; border-radius: 12px;"></video>
+                        <canvas id="faceGeoCanvas" style="display: none;"></canvas>
+                        <div class="mt-3">
+                            <div id="geoStatus" class="small text-muted">📍 Fetching location...</div>
+                            <button class="btn btn-success mt-3 px-4" id="captureFaceBtn">Capture Photo & Check In</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> -->
+        <!-- Modal for Face + Geo Check‑in (Updated) -->
+<div class="modal fade glass-modal" id="faceGeoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-glass shadow-lg">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-main"><i class="fas fa-camera me-2 text-primary"></i>Face & Location Check‑in</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <div class="camera-container mb-3" style="position: relative; width: 320px; height: 320px; margin: 0 auto; background: #000; border-radius: 12px; overflow: hidden;">
+                    <video id="faceGeoVideo" autoplay playsinline width="320" height="320" style="object-fit: cover; transform: scaleX(-1);"></video>
+                    <canvas id="faceGeoCanvas" width="320" height="320" style="position: absolute; top: 0; left: 0;"></canvas>
+                    <div class="face-scan-overlay"></div>
+                    <div class="face-scan-line"></div>
+                </div>
+                <div class="mt-3">
+                    <div id="geoStatus" class="small text-muted">
+                        <i class="fas fa-spinner fa-spin me-1"></i> Fetching location...
+                    </div>
+                    <div id="cameraStatus" class="small text-muted mt-1">
+                        <i class="fas fa-video me-1"></i> Initializing camera...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 d-flex gap-2 justify-content-center pb-4">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary px-4" id="captureFaceGeoBtn" disabled>
+                    <i class="fas fa-camera me-1"></i> Capture & Check In
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Photo View Modal -->
+<div class="modal fade" id="photoViewModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-camera me-2 text-primary"></i>
+                    <span id="photoModalTitle">Check-in Photo</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <img id="photoViewImage" src="" alt="Check-in Photo" style="max-width: 100%; border-radius: 8px; display: none;">
+                <div id="photoLoadingMsg" class="text-center py-5">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">Loading photo...</p>
+                </div>
+                <div id="photoDetails" class="mt-3 text-start small text-muted" style="display: none;">
+                    <hr>
+                    <div><strong>Employee:</strong> <span id="photoEmployee"></span></div>
+                    <div><strong>Date:</strong> <span id="photoDate"></span></div>
+                    <div><strong>Time:</strong> <span id="photoTime"></span></div>
+                    <div><strong>Location:</strong> <span id="photoLocation"></span></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+        <!-- SECTION 2: MAIN WORKSPACE -->
+        <div class="row g-4 mb-4">
+            <!-- Left 8 Columns -->
+            <div class="col-lg-8">
+                <!-- Heatmap -->
+                <div class="glass-card mb-4 p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="fw-bold mb-1 text-main">Monthly Attendance Heatmap</h5>
+                            <p class="text-muted x-small mb-0">Consistently track focus days, presence, late logins, and leave.</p>
+                        </div>
+                        <div class="d-flex gap-3 small text-muted align-items-center">
+                            <span>Less</span>
+                            <div class="d-flex gap-1">
+                                <span class="heatmap-legend border" style="background-color: var(--border-color);" title="No Record/Absent"></span>
+                                <span class="heatmap-legend border" style="background-color: #6366f1;" title="Leave"></span>
+                                <span class="heatmap-legend border" style="background-color: #f59e0b;" title="Late Login"></span>
+                                <span class="heatmap-legend border" style="background-color: #10b981;" title="Present"></span>
+                            </div>
+                            <span>More</span>
+                        </div>
+                    </div>
+                    <div class="heatmap-container d-flex flex-wrap gap-1 p-2 bg-glass-dark rounded-3" id="attendanceHeatmap"></div>
+                </div>
+
+                <!-- Calendar -->
+                <div class="glass-card mb-4 p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0 text-main"><i class="far fa-calendar-alt me-2 text-primary"></i>Attendance Calendar</h5>
+                        <div class="badge bg-primary-subtle text-primary border border-primary-subtle">Monthly View</div>
+                    </div>
+                    <div id="attendanceCalendar" class="calendar-content"></div>
+                </div>
+
+                <!-- Activity Timeline -->
+                <div class="glass-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h5 class="fw-bold mb-1 text-main"><i class="fas fa-stream me-2 text-info"></i>Daily Activity Logs</h5>
+                            <p class="text-muted x-small mb-0">Recent events log and checks history.</p>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-glass btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-filter me-1"></i> Filter
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-2 mt-2" style="border-radius: 12px;">
+                                <li><a class="dropdown-item rounded-2 small" href="javascript:void(0);" onclick="filterTimeline('all')">All Activities</a></li>
+                                <li><a class="dropdown-item rounded-2 small" href="javascript:void(0);" onclick="filterTimeline('check')">Checks Only</a></li>
+                                <li><a class="dropdown-item rounded-2 small" href="javascript:void(0);" onclick="filterTimeline('break')">Breaks Only</a></li>
+                                <li><a class="dropdown-item rounded-2 small" href="javascript:void(0);" onclick="filterTimeline('leave')">Leaves Only</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="activity-timeline" id="timelineList">
+                        {% if my_activity_logs %}
+                            {% for log in my_activity_logs %}
+                                <div class="timeline-item d-flex gap-3 pb-3 border-start position-relative ps-4" data-type="{% if 'Check' in log.activity_type %}check{% elif 'Break' in log.activity_type %}break{% else %}leave{% endif %}">
+                                    <div class="timeline-dot position-absolute top-0 start-0 translate-middle"></div>
+                                    <div class="timeline-time small text-muted font-monospace">{{ log.created_at|date:"h:i A" }}</div>
+                                    <div class="timeline-body">
+                                        <div class="fw-semibold text-main small">{{ log.activity_type }}</div>
+                                        <div class="x-small text-muted mt-1">{{ log.description }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4 text-muted small">
+                                <i class="fas fa-history d-block display-6 mb-2 opacity-50"></i>
+                                No activity logs recorded today.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right 4 Columns -->
+            <div class="col-lg-4">
+                <!-- Mood Tracker -->
+                <div class="glass-card mb-4 p-4 text-center">
+                    <h5 class="fw-bold mb-1 text-main text-start">Daily Standup Mood</h5>
+                    <p class="text-muted x-small mb-3 text-start">How are you feeling today? Pick an emoji status.</p>
+                    <div class="mood-emojis d-flex justify-content-around py-2">
+                        <button class="mood-btn" data-mood="😊 Happy" onclick="selectMood('😊 Happy')">
+                            <span class="fs-2">😊</span>
+                            <span class="d-block x-small text-muted mt-1">Happy</span>
+                        </button>
+                        <button class="mood-btn" data-mood="😐 Normal" onclick="selectMood('😐 Normal')">
+                            <span class="fs-2">😐</span>
+                            <span class="d-block x-small text-muted mt-1">Normal</span>
+                        </button>
+                        <button class="mood-btn" data-mood="😴 Tired" onclick="selectMood('😴 Tired')">
+                            <span class="fs-2">😴</span>
+                            <span class="d-block x-small text-muted mt-1">Tired</span>
+                        </button>
+                        <button class="mood-btn" data-mood="🔥 Focused" onclick="selectMood('🔥 Focused')">
+                            <span class="fs-2">🔥</span>
+                            <span class="d-block x-small text-muted mt-1">Focused</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Leave Request Form -->
+                <div class="glass-card mb-4 p-4">
+                    <h5 class="fw-bold mb-2 text-main"><i class="fas fa-plane-departure me-2 text-primary"></i>Request Leave</h5>
+                    <form action="{% url 'submit_leave_request' %}" method="POST" id="leaveRequestForm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label x-small text-muted">Leave Type</label>
+                            <select class="form-select form-select-sm" name="leave_type" required>
+                                <option value="sick">Sick Leave (Balance: {{ leave_balance.sick_balance }} days)</option>
+                                <option value="casual">Casual Leave (Balance: {{ leave_balance.casual_balance }} days)</option>
+                                <option value="emergency">Emergency Leave (Balance: {{ leave_balance.emergency_balance }} days)</option>
+                                <option value="wfh">Work From Home (Balance: {{ leave_balance.wfh_balance }} days)</option>
+                            </select>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label x-small text-muted">Start Date</label>
+                                <input type="date" class="form-control form-control-sm" name="start_date" id="leaveStartDate" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label x-small text-muted">End Date</label>
+                                <input type="date" class="form-control form-control-sm" name="end_date" id="leaveEndDate" required>
+                            </div>
+                        </div>
+                        <div id="approverHint" class="mb-2"></div>
+                        <div class="mb-3">
+                            <label class="form-label x-small text-muted">Reason</label>
+                            <textarea class="form-control form-control-sm" name="reason" rows="2" placeholder="Describe reason for leave..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm w-100 py-2">
+                            <i class="fas fa-paper-plane me-1"></i> Submit Leave Request
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Leave History -->
+                <div class="glass-card p-4">
+                    <h5 class="fw-bold mb-3 text-main"><i class="fas fa-history me-2 text-success"></i>My Leave History</h5>
+                    <div class="leave-history-list" style="max-height: 250px; overflow-y: auto;">
+                        {% if my_leaves %}
+                            {% for leave in my_leaves %}
+                                <div class="leave-history-item p-3 rounded-3 mb-2 bg-glass-dark border border-glass">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-bold text-main small">{{ leave.get_leave_type_display }}</span>
+                                        <span class="badge bg-{% if leave.status == 'approved' %}success{% elif leave.status == 'rejected' %}danger{% else %}warning{% endif %}-subtle">
+                                            {{ leave.status|title }}
+                                        </span>
+                                    </div>
+                                    <div class="x-small text-muted">
+                                        <i class="far fa-calendar-alt me-1"></i> {{ leave.start_date }} to {{ leave.end_date }}
+                                        ({{ leave.duration_days }} days)
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4 text-muted x-small">No leave requests submitted yet.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: DAILY STATUS UPDATE -->
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <div class="glass-card p-4">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="bg-primary-subtle text-primary p-2 rounded-circle">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-1 text-main">Daily Status Update (Standup Log)</h5>
+                            <p class="text-muted x-small mb-0">Submit standup details before checking out.</p>
+                        </div>
+                    </div>
+                    <form id="statusUpdateForm">
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-semibold text-main">Today's Accomplishments</label>
+                                <textarea class="form-control form-control-sm" name="today_work" id="txtTodayWork" rows="3" 
+                                          placeholder="Detail features completed, bugs solved, or files created...">{% if today_attendance %}{{ today_attendance.today_work|default:'' }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold text-main">Blockers & Challenges</label>
+                                <textarea class="form-control form-control-sm" name="blockers" id="txtBlockers" rows="3" 
+                                          placeholder="Mention blockers, technical challenges...">{% if today_attendance %}{{ today_attendance.blockers|default:'' }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-3 d-flex flex-column justify-content-between">
+                                <div>
+                                    <label class="form-label small fw-semibold text-main d-flex justify-content-between">
+                                        <span>Daily Progress</span>
+                                        <span class="text-primary font-monospace" id="progressVal">{% if today_attendance %}{{ today_attendance.progress }}{% else %}0{% endif %}%</span>
+                                    </label>
+                                    <input type="range" class="form-range" name="progress" id="rangeProgress" min="0" max="100" step="5" 
+                                           value="{% if today_attendance %}{{ today_attendance.progress }}{% else %}0{% endif %}">
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100 py-2 border-0 shadow-sm mt-3" id="btnSaveStatus">
+                                    <i class="fas fa-check-double me-2"></i> Save Standup Status
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 4: Analytics Charts -->
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="glass-card p-4">
+                    <h5 class="fw-bold mb-3 text-main"><i class="fas fa-chart-line me-2 text-primary"></i>Work Hours & Productivity Analytics</h5>
+                    <div style="height: 280px; position: relative;">
+                        <canvas id="weeklyHoursChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <h5 class="fw-bold mb-1 text-main"><i class="fas fa-trophy me-2 text-warning"></i>Weekly Focus Leaderboard</h5>
+                        <div class="ranking-list">
+                            {% for rank in team_rankings %}
+                            <div class="ranking-item d-flex align-items-center justify-content-between p-2 rounded-3 mb-2 bg-glass-dark">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="rank-number fw-bold text-muted font-monospace">#{{ forloop.counter }}</div>
+                                    <img src="{{ rank.avatar }}" class="rounded-circle border" width="30" height="30">
+                                    <div>
+                                        <div class="fw-bold text-main small">{{ rank.name }}</div>
+                                        <div class="x-small text-muted">{{ rank.role }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-success-subtle text-success">{{ rank.efficiency }}% Eff</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="text-center pt-3 border-top mt-3">
+                        <span class="small text-muted">Your Position: <strong class="text-main fw-bold">#{{ my_rank }}</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- TAB 2: TEAM ATTENDANCE STATUS -->
+    {% if user_role != 'team_member' %}
+    <div id="team-attendance-content" class="main-tab-content {% if user_role == 'admin' %}active-content{% endif %}">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold mb-1 text-main"><i class="fas fa-users-cog me-2 text-primary"></i>Team Check-In Registry</h5>
+                <div class="d-flex gap-2 w-50 justify-content-end">
+                    <input type="date" class="form-control form-control-sm w-auto" id="dateFilter" value="{{ selected_date_ymd }}">
+                    <input type="text" class="form-control form-control-sm w-50" placeholder="Search members..." id="searchTeamMembers">
+                </div>
+            </div>
+            <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 text-main" id="tblTeamAttendance">
+        <thead>
+            <tr class="text-muted border-bottom" style="font-size: 0.8rem;">
+                <th>Member Name</th>
+                <th>Today's Status</th>
+                <th>Check In</th>
+                <th>Check Out</th>
+                <th>Geo Location</th>
+                <th>Progress</th>
+                <th>Mood</th>
+                <th>Photo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if team_members %}
+                {% for m in team_members %}
+                    <tr class="team-member-row border-bottom border-glass" data-name="{{ m.user.get_full_name|default:m.user.username|lower }}">
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ m.user.username }}" class="rounded-circle border" width="35" height="35">
+                                <div>
+                                    <div class="fw-bold small">{{ m.user.get_full_name|default:m.user.username }}</div>
+                                    <div class="x-small text-muted">{{ m.user.profile.get_role_display }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if m.status == 'present' %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="fas fa-check-circle me-1"></i>Present</span>
+                            {% elif m.status == 'late' %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1"><i class="fas fa-exclamation-circle me-1"></i>Late Login</span>
+                            {% elif m.status == 'leave' %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1"><i class="fas fa-plane-departure me-1"></i>On Leave</span>
+                            {% else %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="fas fa-circle me-1" style="font-size: 0.55rem;"></i>Absent</span>
+                            {% endif %}
+                        </td>
+                        <td class="font-monospace small">{{ m.check_in|date:"h:i A"|default:"--" }}</td>
+                        <td class="font-monospace small">{{ m.check_out|date:"h:i A"|default:"--" }}</td>
+                        <td class="small">
+                            {% if m.latitude and m.longitude %}
+                                <button class="btn btn-sm btn-outline-info view-location-btn" 
+                                        data-lat="{{ m.latitude }}" 
+                                        data-lng="{{ m.longitude }}"
+                                        data-name="{{ m.user.get_full_name|default:m.user.username }}">
+                                    <i class="fas fa-map-marker-alt"></i> View Map
+                                </button>
+                                <span class="x-small text-muted d-block mt-1">{{ m.latitude|floatformat:4 }}, {{ m.longitude|floatformat:4 }}</span>
+                            {% else %}
+                                <span class="text-muted">--</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if m.status != 'absent' and m.status != 'leave' %}
+                                <div class="progress" style="height: 5px; width: 80px;">
+                                    <div class="progress-bar bg-primary" style="width: {{ m.progress }}%"></div>
+                                </div>
+                                <span class="x-small">{{ m.progress }}%</span>
+                            {% else %}
+                                --
+                            {% endif %}
+                        </td>
+                        <td style="font-size: 1.15rem;">{{ m.mood|default:"--" }}</td>
+                        <td>
+                            {% if m.check_in_photo %}
+                                <button class="btn btn-sm btn-outline-primary view-photo-btn" 
+                                        data-attendance-id="{{ m.attendance_id }}"
+                                        data-name="{{ m.user.get_full_name|default:m.user.username }}">
+                                    <i class="fas fa-image"></i> View
+                                </button>
+                            {% else %}
+                                <span class="text-muted">--</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-muted">
+                        <i class="fas fa-users display-4 d-block mb-3 opacity-25"></i>
+                        No team members found.
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- TAB 3: LEAVE APPROVALS -->
+    {% if user_role != 'team_member' %}
+    <div id="leave-approvals-content" class="main-tab-content">
+        <div class="glass-card p-4">
+            <h5 class="fw-bold mb-3 text-main"><i class="fas fa-clipboard-check me-2 text-primary"></i>Pending Leave Approvals</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Leave Type</th>
+                            <th>Duration</th>
+                            <th>Reason</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for leave in pending_leaves %}
+                        <tr>
+                            <td>{{ leave.user.get_full_name|default:leave.user.username }}</td>
+                            <td>{{ leave.get_leave_type_display }}</td>
+                            <td>{{ leave.start_date }} to {{ leave.end_date }} ({{ leave.duration_days }} days)</td>
+                            <td>{{ leave.reason|truncatechars:50 }}</td>
+                            <td>
+                                <form action="{% url 'approve_leave' leave.pk %}" method="POST" style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                </form>
+                                <button class="btn btn-sm btn-danger" onclick="openRejectModal('{{ leave.pk }}', '{{ leave.user.username }}')">Reject</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Reject Leave Modal -->
+<div class="modal fade" id="rejectLeaveModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" id="rejectLeaveForm">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Reject Leave Request</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Reject leave for <strong id="rejectLeaveUser"></strong></p>
+                    <textarea name="rejection_reason" class="form-control" rows="3" placeholder="Reason for rejection..." required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Photo View Modal -->
+<div class="modal fade" id="photoViewModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <div class="modal-header border-bottom border-glass">
+                <h5 class="modal-title" id="photoViewModalTitle">Check-in Photo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="photoLoadingMsg" class="py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading photo...</p>
+                </div>
+                <img id="checkInPhotoImg" src="" alt="Check-in Photo" class="img-fluid rounded border mb-3" style="display: none; max-height: 350px; object-fit: cover; width: 100%;">
+                <div id="photoDetails" class="text-start bg-light rounded p-3" style="display: none; color: #333;">
+                    <p class="mb-1"><strong>Employee:</strong> <span id="photoEmployee"></span></p>
+                    <p class="mb-1"><strong>Date:</strong> <span id="photoDate"></span></p>
+                    <p class="mb-1"><strong>Time:</strong> <span id="photoTime"></span></p>
+                    <p class="mb-0"><strong>Location:</strong> <span id="photoLocation" class="font-monospace text-muted small"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .attendance-wrapper {
+        --primary-color: #3b82f6;
+        --secondary-color: #6366f1;
+        --success-color: #10b981;
+        --danger-color: #ef4444;
+        --warning-color: #f59e0b;
+        --glass-bg: rgba(255, 255, 255, 0.45);
+        --glass-border: rgba(255, 255, 255, 0.25);
+        --border-color: #e2e8f0;
+    }
+    
+    html[data-theme="dark"] .attendance-wrapper {
+        --glass-bg: rgba(30, 41, 59, 0.45);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --border-color: #334155;
+    }
+
+    .text-gradient {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        transition: transform 0.25s ease;
+    }
+
+    .glass-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .glass-tabs {
+        display: flex;
+        gap: 0.5rem;
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        padding: 0.35rem;
+        border-radius: 12px;
+        width: fit-content;
+    }
+
+    .tab-btn {
+        background: transparent;
+        border: none;
+        padding: 0.5rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover, .tab-btn.active {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .main-tab-content {
+        display: none;
+    }
+
+    .main-tab-content.active-content {
+        display: block;
+        animation: fadeIn 0.35s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .kpi-circle-progress {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .kpi-circle-progress .circle-val {
+        position: absolute;
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+
+    .pulse-dot-success, .pulse-dot-warning {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .pulse-dot-success {
+        background-color: var(--success-color);
+        animation: pulseGreen 2s infinite;
+    }
+
+    .pulse-dot-warning {
+        background-color: var(--warning-color);
+        animation: pulseYellow 2s infinite;
+    }
+
+    @keyframes pulseGreen {
+        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    @keyframes pulseYellow {
+        0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+        70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+
+    .btn-glass {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+
+    .btn-glass:hover {
+        background: rgba(59, 130, 246, 0.08);
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+
+    .heatmap-legend {
+        width: 10px;
+        height: 10px;
+        display: inline-block;
+        border-radius: 2px;
+    }
+
+    .heatmap-day {
+        width: calc(100% / 16 - 4px);
+        min-width: 25px;
+        height: 25px;
+        border-radius: 4px;
+        transition: transform 0.15s ease;
+        cursor: pointer;
+    }
+
+    .heatmap-day:hover {
+        transform: scale(1.18);
+    }
+
+    /* Face Check-In Styles */
+    .camera-container {
+        position: relative;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .camera-container video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .face-scan-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 180px;
+        height: 180px;
+        border: 3px solid #10b981;
+        border-radius: 50%;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+    }
+
+    .face-scan-line {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: #10b981;
+        animation: scanMove 2s linear infinite;
+        pointer-events: none;
+    }
+
+    @keyframes scanMove {
+        0% { top: 0%; }
+        50% { top: 100%; }
+        100% { top: 0%; }
+    }
+
+    .timeline-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: var(--primary-color);
+        border: 2px solid white;
+        left: -6px !important;
+    }
+
+    .mood-btn {
+        background: transparent;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 0.5rem;
+        width: 65px;
+        transition: all 0.2s ease;
+    }
+
+    .mood-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: var(--glass-border);
+    }
+
+    .mood-btn.active {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: var(--primary-color);
+    }
+
+    @media (max-width: 768px) {
+        .glass-tabs { flex-wrap: wrap; }
+        .tab-btn { font-size: 0.75rem; padding: 0.4rem 0.8rem; }
+        .heatmap-day { min-width: 20px; height: 20px; }
+        .mood-btn { width: 55px; }
+        .mood-btn .fs-2 { font-size: 1.5rem; }
+    }
+</style>
+
+<script>
+    // ======================== GLOBAL VARIABLES ========================
+    let workStartTime = null;
+    let workTimerInterval = null;
+    let totalBreakSeconds = {{ completed_break_seconds|default:0 }};
+    let isOnBreak = {% if active_break %}true{% else %}false{% endif %};
+    let isCheckedIn = {% if today_attendance and not today_attendance.check_out %}true{% else %}false{% endif %};
+    let checkInTime = {% if today_attendance and today_attendance.check_in %}{{ today_attendance.check_in|date:"U" }} * 1000{% else %}null{% endif %};
+    let calendarInstance = null;
+    let faceVideoStream = null;
+    let faceGeoStream = null;
+    let currentLocation = { lat: null, lng: null };
+    
+
+
+
+    // DOM Elements
+    const smartTimerEl = document.getElementById('smartTimer');
+    const hoursWorkedEl = document.getElementById('hoursWorkedVal');
+    const btnCheckIn = document.getElementById('btnCheckIn');
+    const btnCheckOut = document.getElementById('btnCheckOut');
+    const btnStartBreak = document.getElementById('btnStartBreak');
+    const btnEndBreak = document.getElementById('btnEndBreak');
+    const wfhSwitch = document.getElementById('wfhSwitch');
+    const rangeProgress = document.getElementById('rangeProgress');
+    const progressVal = document.getElementById('progressVal');
+
+
+    // Initialize global freeze state for dashboards
+    if (isCheckedIn && !isOnBreak) {
+        localStorage.setItem('attendance_freeze_state', 'running');
+    } else if (isCheckedIn && isOnBreak) {
+        localStorage.setItem('attendance_freeze_state', 'paused');
+    } else {
+        localStorage.setItem('attendance_freeze_state', 'stopped');
+    }
+
+    // ======================== HELPER FUNCTIONS ========================
+    function formatTime(seconds) {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function formatDuration(seconds) {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        if (hrs > 0) return `${hrs}h ${mins}m`;
+        if (mins > 0) return `${mins}m`;
+        return `${seconds}s`;
+    }
+
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+        toast.style.zIndex = '9999';
+        toast.style.minWidth = '300px';
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    function getCsrfToken() {
+        const name = 'csrftoken';
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const trimmed = cookie.trim();
+            if (trimmed.startsWith(name + '=')) {
+                return decodeURIComponent(trimmed.substring(name.length + 1));
+            }
+        }
+        return '';
+    }
+    // ======================== WORK TIMER ========================
+    let initialWorkSeconds = {{ today_work_seconds|default:0 }};
+    let clientTimerStart = null;
+
+    function startWorkTimer() {
+        if (workTimerInterval) clearInterval(workTimerInterval);
+        clientTimerStart = Date.now();
+        
+        workTimerInterval = setInterval(() => {
+            if (!clientTimerStart) return;
+            let addedSeconds = Math.floor((Date.now() - clientTimerStart) / 1000);
+            let workSeconds = initialWorkSeconds + addedSeconds;
+            
+            if (smartTimerEl) smartTimerEl.textContent = formatTime(workSeconds);
+            if (hoursWorkedEl) {
+                if (isOnBreak) hoursWorkedEl.innerHTML = '☕ On Break';
+                else hoursWorkedEl.innerHTML = `⏱ Working: ${formatDuration(workSeconds)}`;
+            }
+        }, 1000);
+    }
+
+    function stopWorkTimer() {
+        if (workTimerInterval) clearInterval(workTimerInterval);
+        clientTimerStart = null;
+        if (smartTimerEl) smartTimerEl.textContent = '00:00:00';
+        if (hoursWorkedEl) hoursWorkedEl.textContent = '0h';
+    }
+
+    // ======================== CHECK-IN/OUT API ========================
+    async function performCheckIn(method = 'standard') {
+        const location = wfhSwitch && wfhSwitch.checked ? 'remote' : 'office';
+        const activeMoodBtn = document.querySelector('.mood-btn.active');
+        const mood = activeMoodBtn ? activeMoodBtn.getAttribute('data-mood') || '😊 Happy' : '😊 Happy';
+        
+        const formData = new FormData();
+        formData.append('location', location);
+        formData.append('device', 'desktop');
+        formData.append('mood', mood);
+        formData.append('method', method);
+        
+        try {
+            const response = await fetch("{% url 'attendance_check_in' %}", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                showToast(`✅ Checked in at ${data.check_in_time}`, 'success');
+                startWorkTimer();
+                isCheckedIn = true;
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(data.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Check-in error:', error);
+            showToast('Network error. Please try again.', 'danger');
+        }
+    }
+
+    async function triggerCheckOut() {
+        if (!isCheckedIn) {
+            showToast('You are not checked in.', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await fetch("{% url 'attendance_check_out' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                showToast(`✅ Checked out at ${data.check_out_time}`, 'success');
+                stopWorkTimer();
+                isCheckedIn = false;
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(data.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Check-out error:', error);
+            showToast('Network error. Please try again.', 'danger');
+        }
+    }
+
+    async function triggerStartBreak() {
+        const formData = new FormData();
+        formData.append('break_type', 'lunch');
+        
+        try {
+            const response = await fetch("{% url 'attendance_break_start' %}", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Start break error:', error);
+            showToast('Could not start break.', 'danger');
+        }
+    }
+
+    async function triggerEndBreak() {
+        try {
+            const response = await fetch("{% url 'attendance_break_end' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, 'danger');
+            }
+        } catch (error) {
+            console.error('End break error:', error);
+            showToast('Could not end break.', 'danger');
+        }
+    }
+
+    async function saveStandupStatus() {
+        const activeMoodBtn = document.querySelector('.mood-btn.active');
+        const mood = activeMoodBtn ? activeMoodBtn.getAttribute('data-mood') : '😊 Happy';
+        const today_work = document.getElementById('txtTodayWork')?.value || '';
+        const blockers = document.getElementById('txtBlockers')?.value || '';
+        const progress = rangeProgress?.value || 0;
+        
+        const formData = new FormData();
+        formData.append('mood', mood);
+        formData.append('today_work', today_work);
+        formData.append('blockers', blockers);
+        formData.append('progress', progress);
+        
+        try {
+            const response = await fetch("{% url 'attendance_status_update' %}", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                showToast('Standup status updated!', 'success');
+            } else {
+                showToast(data.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Save status error:', error);
+            showToast('Could not save status.', 'danger');
+        }
+    }
+
+    // ======================== FACE & GEO CHECK-IN ========================
+    function openFaceGeoModal() {
+        if (isCheckedIn) {
+            showToast('You are already checked in today!', 'warning');
+            return;
+        }
+        
+        const modalElement = document.getElementById('faceGeoModal');
+        if (!modalElement) {
+            showToast('Face check-in not available', 'danger');
+            return;
+        }
+        
+        const modal = new bootstrap.Modal(modalElement);
+        const video = document.getElementById('faceGeoVideo');
+        const canvas = document.getElementById('faceGeoCanvas');
+        const geoStatus = document.getElementById('geoStatus');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const captureBtn = document.getElementById('captureFaceGeoBtn');
+        
+        // Reset
+        currentLocation = { lat: null, lng: null };
+        if (captureBtn) captureBtn.disabled = true;
+        
+        // Get geolocation
+        if (navigator.geolocation) {
+            if (geoStatus) geoStatus.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Fetching location...';
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    currentLocation.lat = pos.coords.latitude;
+                    currentLocation.lng = pos.coords.longitude;
+                    if (geoStatus) {
+                        geoStatus.innerHTML = `<i class="fas fa-check-circle text-success me-1"></i> Location captured: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`;
+                    }
+                    if (cameraStatus && cameraStatus.innerHTML.includes('ready') && captureBtn) {
+                        captureBtn.disabled = false;
+                    }
+                }, 
+                err => {
+                    console.error('Geolocation error:', err);
+                    if (geoStatus) {
+                        geoStatus.innerHTML = `<i class="fas fa-exclamation-triangle text-warning me-1"></i> Location access denied. Check-in continues.`;
+                    }
+                    if (cameraStatus && cameraStatus.innerHTML.includes('ready') && captureBtn) {
+                        captureBtn.disabled = false;
+                    }
+                }
+            );
+        } else if (geoStatus) {
+            geoStatus.innerHTML = '<i class="fas fa-exclamation-triangle text-warning me-1"></i> Geolocation not supported';
+        }
+        
+        // Get camera
+        if (video) {
+            navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 320 } })
+                .then(stream => {
+                    faceGeoStream = stream;
+                    video.srcObject = stream;
+                    video.play();
+                    if (cameraStatus) cameraStatus.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> Camera ready';
+                    
+                    // Draw face detection overlay
+                    if (canvas) {
+                        const ctx = canvas.getContext('2d');
+                        function drawOverlay() {
+                            if (!video.paused && !video.ended && video.readyState === 4) {
+                                ctx.clearRect(0, 0, 320, 320);
+                                ctx.beginPath();
+                                ctx.arc(160, 160, 100, 0, Math.PI * 2);
+                                ctx.strokeStyle = '#10b981';
+                                ctx.lineWidth = 3;
+                                ctx.stroke();
+                                ctx.fillStyle = 'rgba(16, 185, 129, 0.05)';
+                                ctx.fill();
+                                requestAnimationFrame(drawOverlay);
+                            } else {
+                                requestAnimationFrame(drawOverlay);
+                            }
+                        }
+                        drawOverlay();
+                    }
+                    
+                    if (captureBtn) {
+                        setTimeout(() => {
+                            if (currentLocation.lat || (geoStatus && geoStatus.innerHTML.includes('denied'))) {
+                                captureBtn.disabled = false;
+                            } else if (!currentLocation.lat) {
+                                setTimeout(() => { if (captureBtn) captureBtn.disabled = false; }, 3000);
+                            }
+                        }, 1000);
+                    }
+                    
+                    modal.show();
+                })
+                .catch(err => {
+                    console.error('Camera error:', err);
+                    if (cameraStatus) cameraStatus.innerHTML = '<i class="fas fa-exclamation-triangle text-danger me-1"></i> Camera access denied';
+                    alert('Camera access is required for face check-in. Please allow camera access and try again.');
+                });
+        }
+    }
+
+    async function captureAndCheckInWithGeo() {
+        const video = document.getElementById('faceGeoVideo');
+        const canvas = document.getElementById('faceGeoCanvas');
+        const captureBtn = document.getElementById('captureFaceGeoBtn');
+        const cameraStatus = document.getElementById('cameraStatus');
+        
+        if (!video || !video.srcObject) {
+            showToast('Camera not ready', 'danger');
+            return;
+        }
+        
+        // Capture photo from video
+        if (canvas) {
+            const context = canvas.getContext('2d');
+            // Make sure video dimensions are available
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                showToast('Camera not ready yet. Please wait.', 'warning');
+                if (captureBtn) {
+                    captureBtn.disabled = false;
+                    captureBtn.innerHTML = '<i class="fas fa-camera me-1"></i> Capture & Check In';
+                }
+                return;
+            }
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+        
+        // Get the base64 image data (remove the data URL prefix for storage)
+        let photoData = null;
+        if (canvas) {
+            const fullDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            // Store the full data URL including the prefix
+            photoData = fullDataUrl;
+        }
+        
+        if (captureBtn) {
+            captureBtn.disabled = true;
+            captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing...';
+        }
+        
+        if (cameraStatus) cameraStatus.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing check-in...';
+        
+        // Prepare check-in data
+        const location = document.getElementById('wfhSwitch')?.checked ? 'remote' : 'office';
+        const activeMoodBtn = document.querySelector('.mood-btn.active');
+        const mood = activeMoodBtn ? activeMoodBtn.getAttribute('data-mood') || '😊 Happy' : '😊 Happy';
+        
+        const formData = new FormData();
+        formData.append('location', location);
+        formData.append('device', 'desktop');
+        formData.append('mood', mood);
+        formData.append('method', 'face_geo');
+        if (photoData) formData.append('photo', photoData);
+        
+        if (currentLocation.lat && currentLocation.lng) {
+            formData.append('latitude', currentLocation.lat);
+            formData.append('longitude', currentLocation.lng);
+        }
+        
+        try {
+            const response = await fetch("{% url 'attendance_check_in' %}", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const modalElement = document.getElementById('faceGeoModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) modal.hide();
+                
+                if (faceGeoStream) {
+                    faceGeoStream.getTracks().forEach(track => track.stop());
+                    faceGeoStream = null;
+                }
+                
+                showToast(`✅ Checked in at ${data.check_in_time} with face capture!`, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(data.message, 'danger');
+                if (captureBtn) {
+                    captureBtn.disabled = false;
+                    captureBtn.innerHTML = '<i class="fas fa-camera me-1"></i> Capture & Check In';
+                }
+                if (cameraStatus) cameraStatus.innerHTML = '<i class="fas fa-video me-1"></i> Camera ready';
+            }
+        } catch (error) {
+            console.error('Check-in error:', error);
+            showToast('Network error. Please try again.', 'danger');
+            if (captureBtn) {
+                captureBtn.disabled = false;
+                captureBtn.innerHTML = '<i class="fas fa-camera me-1"></i> Capture & Check In';
+            }
+            if (cameraStatus) cameraStatus.innerHTML = '<i class="fas fa-video me-1"></i> Camera ready';
+        }
+    }
+    // ======================== VIEW PHOTO FUNCTION ========================
+    async function viewAttendancePhoto(attendanceId, userName) {
+        const modalElement = document.getElementById('photoViewModal');
+        if (!modalElement) {
+            showToast('Photo viewer not available', 'danger');
+            return;
+        }
+        
+        const modal = new bootstrap.Modal(modalElement);
+        const photoImage = document.getElementById('photoViewImage');
+        const loadingMsg = document.getElementById('photoLoadingMsg');
+        const photoDetails = document.getElementById('photoDetails');
+        const modalTitle = document.getElementById('photoModalTitle');
+        
+        // Reset and show loading
+        if (photoImage) {
+            photoImage.style.display = 'none';
+            photoImage.src = '';
+        }
+        if (loadingMsg) {
+            loadingMsg.style.display = 'block';
+            loadingMsg.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading photo...</p>';
+        }
+        if (photoDetails) photoDetails.style.display = 'none';
+        if (modalTitle) modalTitle.textContent = `Check-in Photo - ${userName}`;
+        
+        modal.show();
+        
+        try {
+            const response = await fetch(`/attendance/photo/${attendanceId}/`);
+            const data = await response.json();
+            
+            if (data.status === 'success' && data.photo) {
+                // Set the image source
+                if (photoImage) {
+                    photoImage.src = data.photo;
+                    photoImage.style.display = 'block';
+                    // Force image load check
+                    photoImage.onload = function() {
+                        console.log('Image loaded successfully');
+                    };
+                    photoImage.onerror = function() {
+                        console.error('Image failed to load');
+                        if (loadingMsg) {
+                            loadingMsg.innerHTML = '<i class="fas fa-exclamation-triangle fa-2x text-danger"></i><p>Failed to load image</p>';
+                        }
+                    };
+                }
+                if (loadingMsg) loadingMsg.style.display = 'none';
+                if (photoDetails) photoDetails.style.display = 'block';
+                
+                const photoEmployee = document.getElementById('photoEmployee');
+                const photoDate = document.getElementById('photoDate');
+                const photoTime = document.getElementById('photoTime');
+                const photoLocation = document.getElementById('photoLocation');
+                
+                if (photoEmployee) photoEmployee.textContent = data.user;
+                if (photoDate) photoDate.textContent = data.date;
+                if (photoTime) photoTime.textContent = data.time;
+                if (photoLocation) photoLocation.textContent = data.location || 'Not captured';
+            } else {
+                if (loadingMsg) {
+                    loadingMsg.innerHTML = `<i class="fas fa-exclamation-triangle fa-2x text-warning"></i><p>${data.message || 'No photo available'}</p>`;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading photo:', error);
+            if (loadingMsg) {
+                loadingMsg.innerHTML = '<i class="fas fa-exclamation-triangle fa-2x text-danger"></i><p>Error loading photo</p>';
+            }
+        }
+    }
+    // ======================== VIEW LOCATION ON MAP ========================
+    function openLocationMap(lat, lng, userName) {
+        if (lat && lng) {
+            const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+            window.open(mapUrl, '_blank');
+        } else {
+            showToast('No location data available for this check-in', 'warning');
+        }
+    }
+
+    // ======================== UI FUNCTIONS ========================
+    function selectMood(moodValue) {
+        document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('active'));
+        if (event && event.currentTarget) event.currentTarget.classList.add('active');
+    }
+
+    function filterTimeline(type) {
+        document.querySelectorAll('#timelineList .timeline-item').forEach(item => {
+            const itemType = item.getAttribute('data-type');
+            item.style.display = (type === 'all' || itemType === type) ? '' : 'none';
+        });
+    }
+
+    function switchMainTab(tabId) {
+        document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active-content'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        const contentEl = document.getElementById(tabId + '-content');
+        if (contentEl) contentEl.classList.add('active-content');
+        if (event && event.currentTarget) event.currentTarget.classList.add('active');
+    }
+
+    function openRejectModal(leaveId, userName) {
+        const modalElement = document.getElementById('rejectLeaveModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            const rejectUser = document.getElementById('rejectLeaveUser');
+            const rejectForm = document.getElementById('rejectLeaveForm');
+            if (rejectUser) rejectUser.textContent = userName;
+            if (rejectForm) rejectForm.action = `/attendance/leave/${leaveId}/reject/`;
+            modal.show();
+        }
+    }
+
+    function updateApproverHint() {
+        const start = document.getElementById('leaveStartDate')?.value;
+        const end = document.getElementById('leaveEndDate')?.value;
+        if (start && end) {
+            const days = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1;
+            let approver = days <= 2 ? 'Team Leader' : (days <= 5 ? 'Project Manager' : 'Admin');
+            const hintDiv = document.getElementById('approverHint');
+            if (hintDiv) {
+                hintDiv.innerHTML = `<small class="text-muted">Will be sent to <strong>${approver}</strong> (${days} days).</small>`;
+            }
+        }
+    }
+
+    // ======================== CALENDAR & HEATMAP ========================
+    function initAttendanceCalendar() {
+        const calendarEl = document.getElementById('attendanceCalendar');
+        if (!calendarEl) return;
+        
+        calendarInstance = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            height: 480,
+            events: "{% url 'attendance_events_json' %}",
+            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth' }
+        });
+        calendarInstance.render();
+    }
+
+    function initHeatmap() {
+        const container = document.getElementById('attendanceHeatmap');
+        if (!container) return;
+        
+        fetch("{% url 'attendance_events_json' %}")
+            .then(res => res.json())
+            .then(events => {
+                const today = new Date();
+                container.innerHTML = '';
+                for (let i = 44; i >= 0; i--) {
+                    const d = new Date();
+                    d.setDate(today.getDate() - i);
+                    const dateStr = d.toISOString().split('T')[0];
+                    const dayEvent = events.find(e => e.start === dateStr && e.extendedProps?.type === 'attendance');
+                    const leaveEvent = events.find(e => e.start === dateStr && e.extendedProps?.type === 'leave');
+                    
+                    let color = 'var(--border-color)';
+                    let tooltip = `${dateStr}: No Record`;
+                    
+                    if (dayEvent) {
+                        const status = dayEvent.extendedProps?.status;
+                        if (status === 'present') { color = '#10b981'; tooltip = `${dateStr}: Present`; }
+                        else if (status === 'late') { color = '#f59e0b'; tooltip = `${dateStr}: Late`; }
+                        else if (status === 'absent') { color = '#ef4444'; tooltip = `${dateStr}: Absent`; }
+                    } else if (leaveEvent) {
+                        color = '#6366f1';
+                        tooltip = `${dateStr}: Approved Leave`;
+                    }
+                    
+                    const dayBlock = document.createElement('div');
+                    dayBlock.className = 'heatmap-day border';
+                    dayBlock.style.backgroundColor = color;
+                    dayBlock.title = tooltip;
+                    dayBlock.onclick = () => alert(tooltip);
+                    container.appendChild(dayBlock);
+                }
+            });
+    }
+
+    function initCharts() {
+        const ctx = document.getElementById('weeklyHoursChart');
+        if (!ctx) return;
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ weekly_days|safe }},
+                datasets: [
+                    { label: 'Hours Worked', data: {{ weekly_hours_chart|safe }}, backgroundColor: 'rgba(59, 130, 246, 0.85)' },
+                    { label: 'Efficiency %', data: {{ weekly_productivity_chart|safe }}, type: 'line', borderColor: '#10b981', borderWidth: 3, fill: false, yAxisID: 'y1' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { title: { display: true, text: 'Hours' } },
+                    y1: { position: 'right', title: { display: true, text: 'Efficiency %' }, min: 40, max: 100 }
+                }
+            }
+        });
+    }
+
+    // ======================== EVENT LISTENERS ========================
+    document.addEventListener("DOMContentLoaded", function() {
+        // Set date inputs min
+        const todayStr = new Date().toISOString().split('T')[0];
+        const startInput = document.getElementById('leaveStartDate');
+        const endInput = document.getElementById('leaveEndDate');
+        if (startInput) startInput.min = todayStr;
+        if (endInput) endInput.min = todayStr;
+        
+        // Set circular progress
+        const progressCircle = document.getElementById('kpiProgressCircle');
+        if (progressCircle) {
+            const pct = {{ attendance_pct }};
+            const offset = 251.2 - (251.2 * pct / 100);
+            progressCircle.setAttribute('stroke-dashoffset', offset);
+        }
+        
+        // Start timer if already checked in
+        {% if today_attendance and not today_attendance.check_out %}
+            if (!isOnBreak) {
+                startWorkTimer();
+            } else {
+                if (smartTimerEl) smartTimerEl.textContent = formatTime(initialWorkSeconds);
+                if (hoursWorkedEl) hoursWorkedEl.innerHTML = '☕ On Break';
+            }
+        {% endif %}
+        
+        // Setup Date Filter for admin dashboard
+        const dateFilter = document.getElementById('dateFilter');
+        if (dateFilter) {
+            dateFilter.addEventListener('change', function() {
+                window.location.href = `?date=${this.value}`;
+            });
+        }
+        
+        // Initialize
+        initAttendanceCalendar();
+        initHeatmap();
+        initCharts();
+        
+        // Button handlers
+        if (btnCheckIn) btnCheckIn.onclick = () => performCheckIn('standard');
+        if (btnCheckOut) btnCheckOut.onclick = () => triggerCheckOut();
+        if (btnStartBreak) btnStartBreak.onclick = () => triggerStartBreak();
+        if (btnEndBreak) btnEndBreak.onclick = () => triggerEndBreak();
+        
+        // Status form
+        const statusForm = document.getElementById('statusUpdateForm');
+        if (statusForm) statusForm.onsubmit = (e) => { e.preventDefault(); saveStandupStatus(); };
+        
+        // Range slider
+        if (rangeProgress) rangeProgress.oninput = (e) => { if(progressVal) progressVal.textContent = e.target.value + '%'; };
+        
+        // Leave date handlers
+        if (startInput) startInput.onchange = updateApproverHint;
+        if (endInput) endInput.onchange = updateApproverHint;
+        
+        // Sync button
+        const syncBtn = document.getElementById('btnSync');
+        if (syncBtn) syncBtn.onclick = () => location.reload();
+        
+        // Team member search
+        const searchInput = document.getElementById('searchTeamMembers');
+        if (searchInput) {
+            searchInput.onkeyup = (e) => {
+                const query = e.target.value.toLowerCase();
+                document.querySelectorAll('#tblTeamAttendance tbody tr').forEach(row => {
+                    const name = row.getAttribute('data-name') || '';
+                    row.style.display = name.includes(query) ? '' : 'none';
+                });
+            };
+        }
+        
+        // Face Check-In Link - Use the face geo modal
+        const faceCheckLink = document.getElementById('lnkFaceCheckIn');
+        if (faceCheckLink) {
+            faceCheckLink.onclick = (e) => {
+                e.preventDefault();
+                openFaceGeoModal();
+            };
+        }
+        
+        // Capture button for face geo modal
+        const captureFaceGeoBtn = document.getElementById('captureFaceGeoBtn');
+        if (captureFaceGeoBtn) {
+            captureFaceGeoBtn.onclick = captureAndCheckInWithGeo;
+        }
+        
+        // View photo buttons (delegation for dynamic elements)
+        document.addEventListener('click', function(e) {
+            const photoBtn = e.target.closest('.view-photo-btn');
+            if (photoBtn) {
+                e.preventDefault();
+                const attendanceId = photoBtn.getAttribute('data-attendance-id');
+                const userName = photoBtn.getAttribute('data-name');
+                if (attendanceId) {
+                    viewAttendancePhoto(attendanceId, userName);
+                }
+            }
+            
+            const locationBtn = e.target.closest('.view-location-btn');
+            if (locationBtn) {
+                e.preventDefault();
+                const lat = locationBtn.getAttribute('data-lat');
+                const lng = locationBtn.getAttribute('data-lng');
+                const userName = locationBtn.getAttribute('data-name');
+                if (lat && lng) {
+                    openLocationMap(lat, lng, userName);
+                }
+            }
+        });
+        
+        // Clean up camera on modal close
+        const geoModal = document.getElementById('faceGeoModal');
+        if (geoModal) {
+            geoModal.addEventListener('hidden.bs.modal', function() {
+                if (faceGeoStream) {
+                    faceGeoStream.getTracks().forEach(track => track.stop());
+                    faceGeoStream = null;
+                }
+            });
+        }
+        console.log('Photo view buttons found:', document.querySelectorAll('.view-photo-btn').length);
+    document.querySelectorAll('.view-photo-btn').forEach(btn => {
+        console.log('Photo button:', btn.getAttribute('data-attendance-id'), btn.getAttribute('data-name'));});
+        console.log('Attendance page loaded successfully');
+    });
+</script>
+{% endblock %}
