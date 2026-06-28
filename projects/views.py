@@ -12,6 +12,11 @@ from django.contrib.auth.models import User
 from django.template.loader import get_template, TemplateDoesNotExist
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
+<<<<<<< HEAD
+=======
+from .notifications import create_notification, create_notifications_for_users, users_with_roles
+from django.utils.http import url_has_allowed_host_and_scheme
+>>>>>>> 3b7c361 (Notifications)
 
 from .models import DemoURL
 
@@ -489,6 +494,17 @@ def client_feedback(request):
             feedback = form.save(commit=False)
             feedback.client = request.user
             feedback.save()
+<<<<<<< HEAD
+=======
+            recipients = list(User.objects.filter(is_superuser=True))
+            if feedback.project.manager:
+                recipients.append(feedback.project.manager)
+            create_notifications_for_users(
+                recipients,
+                f"New feedback on {feedback.project.title}: {feedback.subject}",
+                exclude_user_ids=[request.user.id]
+            )
+>>>>>>> 3b7c361 (Notifications)
             return redirect('client_feedback')
     else:
         form = FeedbackForm()
@@ -576,6 +592,15 @@ def create_project(request):
             project = form.save(commit=False)
             project.manager = request.user
             project.save()
+<<<<<<< HEAD
+=======
+            client_user = User.objects.filter(email=project.client.email).first()
+            if client_user:
+                create_notification(
+                    client_user,
+                    f"Your project '{project.title}' is now being handled by {request.user.get_full_name() or request.user.username}."
+                )
+>>>>>>> 3b7c361 (Notifications)
             return redirect('dashboard')
     else:
         form = ProjectForm()
@@ -591,6 +616,15 @@ def accept_client_project(request, project_id):
         project.manager = request.user
         project.approval_status = 'approved'
         project.save()
+<<<<<<< HEAD
+=======
+        client_user = User.objects.filter(email=project.client.email).first()
+        if client_user:
+            create_notification(
+                client_user,
+                f"Your project request '{project.title}' has been approved."
+            )
+>>>>>>> 3b7c361 (Notifications)
         
     return redirect('pending_client_requests')
 
@@ -603,6 +637,15 @@ def reject_client_project(request, project_id):
     if project.manager is None and project.approval_status == 'pending':
         project.approval_status = 'rejected'
         project.save()
+<<<<<<< HEAD
+=======
+        client_user = User.objects.filter(email=project.client.email).first()
+        if client_user:
+            create_notification(
+                client_user,
+                f"Your project request '{project.title}' has been rejected."
+            )
+>>>>>>> 3b7c361 (Notifications)
         
     return redirect('pending_client_requests')
 
@@ -662,6 +705,15 @@ def client_form(request):
                 file=form.cleaned_data['file_upload']
             )
             project_file.save()
+<<<<<<< HEAD
+=======
+            recipients = users_with_roles(['project_manager'], include_superusers=True)
+            create_notifications_for_users(
+                recipients,
+                f"New client project request submitted: {project.title}",
+                exclude_user_ids=[request.user.id]
+            )
+>>>>>>> 3b7c361 (Notifications)
             
             return redirect('dashboard')
     else:
@@ -739,7 +791,21 @@ def task_board(request):
             form.fields['assigned_to'].queryset = allowed_members
 
         if form.is_valid():
+<<<<<<< HEAD
             form.save()
+=======
+            task = form.save()
+            recipients = []
+            if task.assigned_to:
+                recipients.append(task.assigned_to)
+            if task.project.manager:
+                recipients.append(task.project.manager)
+            create_notifications_for_users(
+                recipients,
+                f"Task assigned: {task.title} ({task.project.title})",
+                exclude_user_ids=[request.user.id]
+            )
+>>>>>>> 3b7c361 (Notifications)
             return redirect('task_board')
     else:
         form = TaskForm()
@@ -769,6 +835,17 @@ def team_reports(request):
             report = form.save(commit=False)
             report.submitted_by = request.user
             report.save()
+<<<<<<< HEAD
+=======
+            recipients = list(User.objects.filter(is_superuser=True))
+            if report.project.manager:
+                recipients.append(report.project.manager)
+            create_notifications_for_users(
+                recipients,
+                f"New report submitted: {report.title} ({report.project.title})",
+                exclude_user_ids=[request.user.id]
+            )
+>>>>>>> 3b7c361 (Notifications)
             return redirect('team_reports')
     else:
         form = ReportForm()
@@ -994,6 +1071,12 @@ def send_chat_message(request):
             content=content,
             file=uploaded_file
         )
+<<<<<<< HEAD
+=======
+        if receiver and receiver != request.user:
+            sender_name = request.user.get_full_name() or request.user.username
+            create_notification(receiver, f"New message from {sender_name}")
+>>>>>>> 3b7c361 (Notifications)
         
         is_image = False
         is_pdf = False
@@ -1542,6 +1625,19 @@ def update_task_status(request, pk):
         if new_status in ['todo', 'in_progress', 'review', 'done']:
             task.status = new_status
             task.save()
+<<<<<<< HEAD
+=======
+            recipients = []
+            if task.assigned_to:
+                recipients.append(task.assigned_to)
+            if task.project.manager:
+                recipients.append(task.project.manager)
+            create_notifications_for_users(
+                recipients,
+                f"Task status updated: {task.title} is now {task.get_status_display()}",
+                exclude_user_ids=[request.user.id]
+            )
+>>>>>>> 3b7c361 (Notifications)
             return JsonResponse({'status': 'success', 'new_status': task.status})
         return JsonResponse({'status': 'error', 'message': 'Invalid status'}, status=400)
     except Exception as e:
@@ -1561,6 +1657,19 @@ def add_task_comment(request, pk):
                 author=request.user,
                 content=content.strip()
             )
+<<<<<<< HEAD
+=======
+            recipients = []
+            if task.assigned_to:
+                recipients.append(task.assigned_to)
+            if task.project.manager:
+                recipients.append(task.project.manager)
+            create_notifications_for_users(
+                recipients,
+                f"New comment on task '{task.title}' by {request.user.get_full_name() or request.user.username}",
+                exclude_user_ids=[request.user.id]
+            )
+>>>>>>> 3b7c361 (Notifications)
             return JsonResponse({
                 'status': 'success',
                 'comment': {
@@ -1586,6 +1695,19 @@ def add_task_attachment(request, pk):
                 name=uploaded_file.name,
                 file=uploaded_file
             )
+<<<<<<< HEAD
+=======
+            recipients = []
+            if task.assigned_to:
+                recipients.append(task.assigned_to)
+            if task.project.manager:
+                recipients.append(task.project.manager)
+            create_notifications_for_users(
+                recipients,
+                f"New file added to task '{task.title}': {task_file.name}",
+                exclude_user_ids=[request.user.id]
+            )
+>>>>>>> 3b7c361 (Notifications)
             return JsonResponse({
                 'status': 'success',
                 'file': {
@@ -1873,6 +1995,13 @@ def assign_project_to_leader(request, project_id):
                 assignment.status = 'pending'
                 assignment.assigned_by = request.user
                 assignment.save()
+<<<<<<< HEAD
+=======
+            create_notification(
+                team_leader,
+                f"You have been assigned to project '{project.title}'."
+            )
+>>>>>>> 3b7c361 (Notifications)
             return redirect('project_detail', pk=project_id)
     else:
         form = ProjectAssignmentForm()
@@ -1914,6 +2043,13 @@ def accept_project_assignment(request, assignment_id):
     assignment = get_object_or_404(ProjectAssignment, pk=assignment_id, team_leader=request.user)
     assignment.status = 'accepted'
     assignment.save()
+<<<<<<< HEAD
+=======
+    create_notification(
+        assignment.assigned_by,
+        f"{request.user.get_full_name() or request.user.username} accepted assignment for '{assignment.project.title}'."
+    )
+>>>>>>> 3b7c361 (Notifications)
     return redirect('team_leader_projects')
 
 @login_required
@@ -1922,6 +2058,13 @@ def reject_project_assignment(request, assignment_id):
     assignment = get_object_or_404(ProjectAssignment, pk=assignment_id, team_leader=request.user)
     assignment.status = 'rejected'
     assignment.save()
+<<<<<<< HEAD
+=======
+    create_notification(
+        assignment.assigned_by,
+        f"{request.user.get_full_name() or request.user.username} rejected assignment for '{assignment.project.title}'."
+    )
+>>>>>>> 3b7c361 (Notifications)
     return redirect('team_leader_projects')
 
 @login_required
@@ -1945,6 +2088,13 @@ def quick_assign_project(request, project_id, team_leader_id):
         assignment.status = 'pending'
         assignment.assigned_by = request.user
         assignment.save()
+<<<<<<< HEAD
+=======
+    create_notification(
+        team_leader,
+        f"You have been assigned to project '{project.title}'."
+    )
+>>>>>>> 3b7c361 (Notifications)
     
     return redirect('teams')
 @login_required
@@ -2026,6 +2176,22 @@ def admin_update_user_status(request):
         return JsonResponse({'status': 'success', 'message': 'User status updated successfully'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+<<<<<<< HEAD
+=======
+
+
+@login_required
+def mark_all_notifications_read(request):
+    Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    referer = request.META.get('HTTP_REFERER')
+    if referer and url_has_allowed_host_and_scheme(
+        referer,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(referer)
+    return redirect('dashboard')
+>>>>>>> 3b7c361 (Notifications)
     
 
 @login_required
@@ -2657,7 +2823,11 @@ def submit_leave_request(request):
             messages.error(request, f"Insufficient leave balance for {leave_type.upper()}. Requested: {duration} days.")
             return redirect('attendance_dashboard')
 
+<<<<<<< HEAD
         LeaveRequest.objects.create(
+=======
+        leave_request = LeaveRequest.objects.create(
+>>>>>>> 3b7c361 (Notifications)
             user=request.user,
             leave_type=leave_type,
             start_date=start_date,
@@ -2665,6 +2835,19 @@ def submit_leave_request(request):
             reason=reason,
             status='pending'
         )
+<<<<<<< HEAD
+=======
+        required_role = leave_request.required_approver_role()
+        approvers = users_with_roles(
+            [required_role],
+            include_superusers=(required_role == 'admin')
+        )
+        create_notifications_for_users(
+            approvers,
+            f"Leave request pending approval: {request.user.get_full_name() or request.user.username} ({start_date} to {end_date})",
+            exclude_user_ids=[request.user.id]
+        )
+>>>>>>> 3b7c361 (Notifications)
 
         messages.success(request, f"Leave request for {leave_type.title()} ({duration} days) submitted successfully.")
         
@@ -3127,4 +3310,7 @@ def client_demo_action(request, demo_id, action):
             Notification.objects.create(user=demo.project.manager, message=f"Client Rejected Demo: {demo.project.title}")
             
     return redirect('client_demo_approval')
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3b7c361 (Notifications)

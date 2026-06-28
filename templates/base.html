@@ -549,57 +549,41 @@
         <button class="btn btn-link position-relative p-1 text-decoration-none text-muted hover-primary"
           id="notificationBell" data-bs-toggle="dropdown" aria-expanded="false">
           <i class="far fa-bell" style="font-size: 1.25rem;"></i>
+          {% if header_notifications_unread_count > 0 %}
           <span
             class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white"
             style="font-size: 0.6rem; padding: 0.25em 0.5em;">
-            3
+            {{ header_notifications_unread_count }}
           </span>
+          {% endif %}
         </button>
         <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg mt-2 p-0 overflow-hidden"
           aria-labelledby="notificationBell" style="border-radius: 16px; min-width: 320px;">
           <div class="p-3 bg-primary text-white d-flex align-items-center justify-content-between">
             <h6 class="mb-0 fw-bold"><i class="fas fa-bell me-2"></i> Notifications</h6>
-            <span class="badge bg-white text-primary small">3 Unread</span>
+            <span class="badge bg-white text-primary small">{{ header_notifications_unread_count }} Unread</span>
           </div>
           <div class="list-group list-group-flush" style="max-height: 280px; overflow-y: auto;">
-            <a href="#"
-              class="list-group-item list-group-item-action p-3 d-flex align-items-start gap-3 border-0 border-bottom">
-              <div class="bg-primary-subtle text-primary p-2 rounded-circle">
-                <i class="fas fa-file-upload"></i>
+            {% for notification in header_notifications %}
+            <div
+              class="list-group-item p-3 d-flex align-items-start gap-3 border-0 {% if not forloop.last %}border-bottom{% endif %}">
+              <div
+                class="p-2 rounded-circle {% if notification.is_read %}bg-light text-muted{% else %}bg-warning-subtle text-warning{% endif %}">
+                <i class="fas fa-bell"></i>
               </div>
               <div class="flex-grow-1">
-                <div class="small fw-semibold text-main">New file uploaded</div>
-                <div class="x-small text-muted mt-1" style="font-size: 0.75rem;">Sarah Connor uploaded
-                  'design_specification_v2.pdf'</div>
-                <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">10 mins ago</div>
+                <div class="small fw-semibold text-main">{{ notification.message }}</div>
+                <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">{{ notification.created_at|timesince }} ago</div>
               </div>
-            </a>
-            <a href="{% url 'messages' %}"
-              class="list-group-item list-group-item-action p-3 d-flex align-items-start gap-3 border-0 border-bottom">
-              <div class="bg-warning-subtle text-warning p-2 rounded-circle">
-                <i class="fas fa-comment"></i>
-              </div>
-              <div class="flex-grow-1">
-                <div class="small fw-semibold text-main">New message received</div>
-                <div class="x-small text-muted mt-1" style="font-size: 0.75rem;">Sarah Connor: "Please
-                  review the updated design prototypes."</div>
-                <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">1 hour ago</div>
-              </div>
-            </a>
-            <a href="#" class="list-group-item list-group-item-action p-3 d-flex align-items-start gap-3 border-0">
-              <div class="bg-success-subtle text-success p-2 rounded-circle">
-                <i class="fas fa-check-circle"></i>
-              </div>
-              <div class="flex-grow-1">
-                <div class="small fw-semibold text-main">Task completed</div>
-                <div class="x-small text-muted mt-1" style="font-size: 0.75rem;">John Doe completed
-                  'Setup repositories'</div>
-                <div class="x-small text-muted mt-1" style="font-size: 0.7rem;">Yesterday</div>
-              </div>
-            </a>
+            </div>
+            {% empty %}
+            <div class="list-group-item p-3 text-center text-muted small border-0">
+              No notifications yet.
+            </div>
+            {% endfor %}
           </div>
           <div class="p-2 border-top text-center bg-light">
-            <a href="#" class="text-decoration-none small text-primary fw-medium">Mark all as read</a>
+            <a href="{% url 'mark_all_notifications_read' %}" class="text-decoration-none small text-primary fw-medium">Mark all as read</a>
           </div>
         </ul>
       </div>
