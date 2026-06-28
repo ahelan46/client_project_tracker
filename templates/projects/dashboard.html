@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | Clients Project Tracker{% endblock %}
+
+{% block content %}
+<!-- Welcome Banner -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm overflow-hidden" style="border-radius: 16px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+            <div class="card-body p-4 p-lg-5 text-white position-relative">
+                <div class="row align-items-center">
+                    <div class="col-lg-8">
+                        <h2 class="fw-bold mb-2">
+                            {% if user.profile.role == 'admin' %}
+                                Welcome, Admin!
+                            {% elif user.profile.role == 'project_manager' %}
+                                Welcome, Project Manager!
+                            {% elif user.profile.role == 'team_leader' %}
+                                Welcome Leader!
+                            {% elif user.profile.role == 'team_member' %}
+                                Welcome Team Member!
+                            {% elif user.profile.role == 'client' %}
+                                Welcome Client!
+                            {% else %}
+                                Welcome Back, {{ user.username }}!
+                            {% endif %}
+                        </h2>
+                        <p class="mb-0 opacity-75">Here's what's happening with your projects today. You have {{ total_tasks }} active tasks to manage.</p>
+                    </div>
+                    <div class="col-lg-4 text-end d-none d-lg-block">
+                        <div class="bg-white bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                            <i class="fas fa-user-shield fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+                <!-- Decorative Circle -->
+                <div class="position-absolute" style="width: 200px; height: 200px; background: white; opacity: 0.05; border-radius: 50%; top: -100px; right: -50px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPI Cards Row -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 12px; border: 1px solid var(--border-color) !important;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="small fw-bold text-muted text-uppercase">Total Project</div>
+                <div class="text-primary bg-primary bg-opacity-10 p-2 rounded-3">
+                    <i class="fas fa-project-diagram"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-0 text-main">{{ total_projects }}</h3>
+            <div class="mt-2 text-success small">
+                <i class="fas fa-arrow-up me-1"></i> 12% from last month
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 12px; border: 1px solid var(--border-color) !important;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="small fw-bold text-muted text-uppercase">Complete</div>
+                <div class="text-success bg-success bg-opacity-10 p-2 rounded-3">
+                    <i class="fas fa-check-double"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-0 text-main">{{ completed_projects }}</h3>
+            <div class="mt-2 text-muted small">All tasks finished</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 12px; border: 1px solid var(--border-color) !important;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="small fw-bold text-muted text-uppercase">Progress</div>
+                <div class="text-warning bg-warning bg-opacity-10 p-2 rounded-3">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-0 text-main">{{ ongoing_projects }}</h3>
+            <div class="mt-2 text-muted small">Actively working</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 12px; border: 1px solid var(--border-color) !important;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="small fw-bold text-muted text-uppercase">Pending</div>
+                <div class="text-secondary bg-secondary bg-opacity-10 p-2 rounded-3">
+                    <i class="far fa-clock"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-0 text-main">{{ pending_projects }}</h3>
+            <div class="mt-2 text-muted small">Awaiting start</div>
+        </div>
+    </div>
+</div>
+
+<!-- Bottom Section -->
+<div class="row g-4">
+    <!-- Recent Projects Table -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h5 class="fw-bold mb-0">Recent Projects</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table-custom mb-0">
+                        <thead>
+                            <tr>
+                                <th>Project</th>
+                                <th>Client</th>
+                                <th>Status</th>
+                                <th>Deadline</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for project in recent_projects %}
+                            <tr>
+                                <td><a href="{% url 'project_detail' project.pk %}" class="project-name">{{ project.title }}</a></td>
+                                <td>{{ project.client.name }}</td>
+                                <td>
+                                    <span class="badge bg-{{ project.status }}">
+                                        {{ project.get_status_display }}
+                                    </span>
+                                </td>
+                                <td class="text-muted small">{{ project.deadline|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center py-4">No recent projects</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Deadlines -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h5 class="fw-bold mb-0">Upcoming Deadlines</h5>
+            </div>
+            <div class="card-body px-4 pt-3">
+                {% for task in upcoming_deadlines %}
+                <div class="d-flex align-items-center mb-4">
+                    <div class="bg-danger bg-opacity-10 text-danger p-2 rounded-3 me-3" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                        <i class="far fa-calendar-alt"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold small">{{ task.title }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">Due: {{ task.deadline|date:"M d, Y" }}</div>
+                    </div>
+                    <span class="badge bg-{{ task.priority }} px-2 py-1" style="font-size: 0.65rem;">{{ task.get_priority_display }}</span>
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-muted small">No upcoming deadlines</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
